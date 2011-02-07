@@ -1,0 +1,3 @@
+CxxFlags -g -Wall
+CxxInclude ${SARUDIR}/include/
+CxxInclude ..
