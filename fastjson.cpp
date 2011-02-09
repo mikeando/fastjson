@@ -2,6 +2,44 @@
 #include <vector>
 #include <iostream>
 
+#define C_NOT_HEX 0
+#define C_HEX(X) (0x80 + (X))
+
+static uint8_t hex_char_traits[128] =
+{
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_HEX(0),  C_HEX(1),  C_HEX(2),  C_HEX(3),  C_HEX(4) , C_HEX(5),  C_HEX(6),  C_HEX(7),
+  C_HEX(8),  C_HEX(9),  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+
+  C_NOT_HEX, C_HEX(10), C_HEX(11), C_HEX(12), C_HEX(13), C_HEX(14), C_HEX(15), C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+
+  C_NOT_HEX, C_HEX(10), C_HEX(11), C_HEX(12), C_HEX(13), C_HEX(14), C_HEX(15), C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX
+};
+
+bool ishex( char c )
+{
+  unsigned char uc = static_cast<unsigned char>(c);
+  if(uc>=128) return false;
+  return hex_char_traits[uc] & 0x80;
+}
+
+uint8_t hexdigit( char c )
+{
+  unsigned char uc = static_cast<unsigned char>(c);
+  return hex_char_traits[uc] & 0x0F;
+}
+
 namespace fastjson
 {
   bool parse_json_counts( const std::string & json_str, JsonElementCount * count )
@@ -60,23 +98,64 @@ namespace fastjson
     return true;
   }
 
-  bool parse_json_count_string(
+  //returns how many characters we've consumed
+  int parse_json_count_string(
       const char * cursor,
       const char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
-    switch(*cursor)
+    //Lets be greedy and eat up all the characters we can.
+    const char * newcursor=cursor;
+    while(newcursor!=end)
     {
-      case '"':
-        //Are we ending a string?
-        count->strings += 1;
-        state->pop_back();
-        break;
-      default:
-        count->total_string_length++;
+      switch(*newcursor)
+      {
+        case '"':
+          //Are we ending the string?
+          count->strings += 1;
+          state->pop_back();
+          return (newcursor-cursor)+1;
+        case '\\':
+          //We've got an escaped character..
+          ++newcursor;
+          if(newcursor==end) return -1;
+          //What kind of escape is it?
+          switch(*newcursor)
+          {
+            case 'u': //Unicode escape.
+              ++newcursor;
+              //We need 4 hex digits after the u
+              if(newcursor+4 >= end) return -1;
+              if( ! ( ishex( newcursor[0] ) && ishex( newcursor[1] ) && ishex( newcursor[2] ) && ishex( newcursor[3] ) ) )
+                return -1;
+              uint32_t v = ( hexdigit(newcursor[0]) << 12) | ( hexdigit(newcursor[1])<<8 ) | hexdigit(newcursor[2])<<4 | hexdigit(newcursor[3] );
+              if( v<0x0080 )
+              {
+                count->total_string_length++;
+              }
+              else if ( v<0x0800 )
+              {
+                count->total_string_length+=2;
+              }
+              else if ( v<=0xFFFF )
+              {
+                count->total_string_length+=3;
+              }
+              newcursor+=4;
+              break;
+            default:
+              //TODO: We should check that its a valid escape character
+              ++newcursor;
+              count->total_string_length++;
+          }
+          break;
+        default:
+          count->total_string_length++;
+          ++newcursor;
+      }
     }
-    return true;
+    return -1;
   }
 
   //This is only called at the start of an array
@@ -340,43 +419,54 @@ namespace fastjson
     const char * cursor = start;
     while( cursor != end )
     {
+      int dp=0;
       switch( state_stack.back().state )
       {
         case state::start_root:
           if( ! parse_json_count_root( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::start_string:
-          if( ! parse_json_count_string( cursor, end, count, &state_stack ) ) return false;
+          dp = parse_json_count_string( cursor, end, count, &state_stack );
+          if (dp<=0) return false;
           break;
         case state::start_array :
           if( ! parse_json_count_array( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::continue_array :
           if( ! parse_json_count_array_continue( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::require_array_element :
           if( ! parse_json_count_require_element( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::dict_start:
           if( ! parse_json_count_dict( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::dict_read_kv_sep:
           if( ! parse_json_count_dict_kv_sep( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::dict_read_sep:
           if( ! parse_json_count_dict_sep( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::dict_read_key:
           if( ! parse_json_count_dict_key( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         case state::dict_read_value:
           if( ! parse_json_count_dict_value( cursor, end, count, &state_stack ) ) return false;
+          dp=1;
           break;
         default:
           return false;
       }
 
-      ++cursor;
+      cursor+=dp;
     }
 
     return state_stack.back().state == state::start_root;
