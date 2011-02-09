@@ -26,7 +26,7 @@ namespace fastjson
   };
 
   bool parse_json_counts( const std::string & json_str, JsonElementCount * count );
-  bool parse_json_counts( const char * start, const char * end, JsonElementCount * count );
+  bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count );
 }
 
 #endif

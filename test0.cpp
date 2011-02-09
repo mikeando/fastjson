@@ -54,7 +54,7 @@ class TestFixture
       saru_assert_equal( 1u, count.arrays );
       saru_assert_equal( 0u, count.dicts );
       saru_assert_equal( 0u, count.total_string_length );
-    } 
+    }
 
     void count_empty_dict()
     {
@@ -75,7 +75,7 @@ class TestFixture
       saru_assert_equal( 0u, count.dicts );
       saru_assert_equal( 0u, count.total_string_length );
     }
- 
+
     void count_nested_array2()
     {
       std::string json_str( "[[],[]]" );
@@ -85,7 +85,7 @@ class TestFixture
       saru_assert_equal( 0u, count.dicts );
       saru_assert_equal( 0u, count.total_string_length );
       saru_assert_equal( 2u, count.array_elements );
-    } 
+    }
 
     //Lets try some strings
     void count_simple_string()
@@ -159,7 +159,7 @@ class TestFixture
       saru_assert( ! fastjson::parse_json_counts( "{ \"f\":\"g\", }", &count ) );
     }
 
-    
+
     void count_complex_strings()
     {
       saru_assert( fastjson::parse_json_counts( "\"\\u0000\"", &count ) ); //unicode null "\u0000";
@@ -271,6 +271,32 @@ class TestFixture
       saru_assert(false);
     }
 
+    void count_just_stupid()
+    {
+      saru_assert( ! fastjson::parse_json_counts( "x", &count ) );
+    }
+
+    void count_number_simple_int()
+    {
+      saru_assert( fastjson::parse_json_counts( "1234", &count ) );
+      saru_assert_equal( 1u, count.strings );
+      saru_assert_equal( 4u, count.total_string_length );
+    }
+
+    void count_number_neg_int()
+    {
+      saru_assert( fastjson::parse_json_counts( "-1234", &count ) );
+      saru_assert_equal( 1u, count.strings );
+      saru_assert_equal( 5u, count.total_string_length );
+    }
+
+    void count_number_simple_float()
+    {
+      saru_assert( fastjson::parse_json_counts( "1234.1234", &count ) );
+      saru_assert_equal( 1u, count.strings );
+      saru_assert_equal( 9u, count.total_string_length );
+    }
+
 };
 
 int main()
@@ -304,6 +330,10 @@ int main()
   SARU_TEST( TestFixture::count_3byte_utf8_max, logger);
   SARU_TEST( TestFixture::count_utf8_pair_nonsurrogate, logger);
   SARU_TEST( TestFixture::count_evil_gclef_string, logger);
+  SARU_TEST( TestFixture::count_just_stupid, logger);
+  SARU_TEST( TestFixture::count_number_simple_int, logger);
+  SARU_TEST( TestFixture::count_number_neg_int, logger);
+  SARU_TEST( TestFixture::count_number_simple_float, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;
