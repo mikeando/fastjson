@@ -1,5 +1,5 @@
 // SARU : Tag fastjson
-// SARU : CxxExtraObjects fastjson.cpp
+// SARU : CxxLibs -L.. -lfastjson
 
 #include "saru_cxx.h"
 
