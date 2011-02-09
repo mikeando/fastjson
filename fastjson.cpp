@@ -1,49 +1,56 @@
 #include "fastjson.h"
-#include "parser_codes.h"
 #include <vector>
 #include <iostream>
 
-#define C_NOT_HEX 0
-#define C_HEX(X) (0x80 + (X))
+#define C_MISC      0
+#define C_HEX(X)   (0x80 + (X))
+#define C_WHITE    0x40
+#define C_DIGIT(X) (0x80 + 0x20 + (X))
 
-static uint8_t hex_char_traits[128] =
+static uint8_t fj_char_traits[128] =
 {
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_WHITE,    C_WHITE,    C_MISC,     C_MISC,     C_WHITE,    C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
 
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_HEX(0),  C_HEX(1),  C_HEX(2),  C_HEX(3),  C_HEX(4) , C_HEX(5),  C_HEX(6),  C_HEX(7),
-  C_HEX(8),  C_HEX(9),  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_WHITE,    C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_DIGIT(0), C_DIGIT(1), C_DIGIT(2), C_DIGIT(3), C_DIGIT(4), C_DIGIT(5), C_DIGIT(6), C_DIGIT(7),
+  C_DIGIT(8), C_DIGIT(9), C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
 
-  C_NOT_HEX, C_HEX(10), C_HEX(11), C_HEX(12), C_HEX(13), C_HEX(14), C_HEX(15), C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
+  C_MISC,     C_HEX(10),  C_HEX(11),  C_HEX(12),  C_HEX(13),  C_HEX(14),  C_HEX(15),  C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
 
-  C_NOT_HEX, C_HEX(10), C_HEX(11), C_HEX(12), C_HEX(13), C_HEX(14), C_HEX(15), C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX,
-  C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX, C_NOT_HEX
+  C_MISC,     C_HEX(10),  C_HEX(11),  C_HEX(12),  C_HEX(13),  C_HEX(14),  C_HEX(15),  C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC
 };
 
 bool ishex( unsigned char c )
 {
   if(c>=128) return false;
-  return hex_char_traits[c] & 0x80;
+  return fj_char_traits[c] & 0x80;
 }
 
 uint8_t hexdigit( unsigned char c )
 {
   if(c>=128) return false;
-  return hex_char_traits[c] & 0x0F;
+  return fj_char_traits[c] & 0x0F;
 }
 
 bool isdigit( unsigned char c )
 {
   if(c>=128) return false;
-  return ascii_class[c]==C_DIGIT;
+  return fj_char_traits[c] & 0x20;
+}
+
+bool iswhite( unsigned char c )
+{
+  if( c>=128) return false;
+  return fj_char_traits[c] & 0x40;
 }
 
 //Moves pointer as far as it can while reading a valid number.
@@ -143,62 +150,64 @@ namespace fastjson
   const unsigned char * eat_whitespace( const unsigned char * start, const unsigned char * end )
   {
     const unsigned char * cursor = start;
-    while( cursor!=end && ( ascii_class[*cursor]==C_SPACE || ascii_class[*cursor]==C_WHITE ) )
+    while( cursor!=end && iswhite(*cursor) )
     {
       ++cursor;
     }
     return cursor;
   }
 
-  int parse_start_object(
+  // Returns the pointer to the body of the next object and changes to the
+  // appropriate parsing state.
+  // returns NULL if it fails
+  const unsigned char * parse_start_object(
     const unsigned char * start,
     const unsigned char * end,
     JsonElementCount * count,
     std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if( cursor==end ) return -1;
-    int white_count = cursor-start;
+    if( cursor==end ) return NULL;
 
-    switch (ascii_class[*cursor])
+    switch (*cursor)
     {
-      case C_LSQRB:
+      case '[':
         state->push_back( ParserState(state::start_array) );
-        return white_count + 1;
-      case C_LCURB:
+        return cursor + 1;
+      case '{':
         state->push_back( ParserState(state::dict_start) );
-        return white_count + 1;
-      case C_QUOTE:
+        return cursor + 1;
+      case '"':
         state->push_back( ParserState(state::start_string) );
-        return white_count + 1;
-      case C_DIGIT:
-      case C_MINUS:
-        state->push_back( ParserState(state::start_number) );
-        return white_count + 0;
+        return cursor + 1;
       default:
-        return -1;
         ;
     }
+    //Maybe its a number?
+    if( isdigit(*cursor) || *cursor=='-' )
+    {
+        state->push_back( ParserState(state::start_number) );
+        return cursor;
+    }
+    return NULL;
   }
 
 
-  int parse_json_count_root(
-    const unsigned char * cursor,
+  const unsigned char * parse_json_count_root(
+    const unsigned char * start,
     const unsigned char * end,
     JsonElementCount * count,
     std::vector<ParserState> * state )
   {
-    return parse_start_object(cursor,end,count,state);
+    return parse_start_object(start,end,count,state);
   }
 
-  //returns how many characters we've consumed
-  int parse_json_count_string(
+  const unsigned char * parse_json_count_string(
       const unsigned char * cursor,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
-    //Lets be greedy and eat up all the characters we can.
     const unsigned char * newcursor=cursor;
     while(newcursor!=end)
     {
@@ -208,20 +217,20 @@ namespace fastjson
           //Are we ending the string?
           count->strings += 1;
           state->pop_back();
-          return (newcursor-cursor)+1;
+          return newcursor+1;
         case '\\':
           //We've got an escaped character..
           ++newcursor;
-          if(newcursor==end) return -1;
+          if(newcursor==end) return NULL;
           //What kind of escape is it?
           switch(*newcursor)
           {
             case 'u': //Unicode escape.
               ++newcursor;
               //We need 4 hex digits after the u
-              if(newcursor+4 >= end) return -1;
+              if(newcursor+4 >= end) return NULL;
               if( ! ( ishex( newcursor[0] ) && ishex( newcursor[1] ) && ishex( newcursor[2] ) && ishex( newcursor[3] ) ) )
-                return -1;
+                return NULL;
               uint32_t v = ( hexdigit(newcursor[0]) << 12) | ( hexdigit(newcursor[1])<<8 ) | hexdigit(newcursor[2])<<4 | hexdigit(newcursor[3] );
               if( v<0x0080 )
               {
@@ -248,35 +257,34 @@ namespace fastjson
           ++newcursor;
       }
     }
-    return -1;
+    return NULL;
   }
 
-  //returns how many characters we've consumed
-  int parse_json_count_number(
+  const unsigned char * parse_json_count_number(
       const unsigned char * cursor,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * np = parse_number( cursor, end );
-    if(np==cursor) return -1;
+    if(np==cursor) return NULL;
 
     count->strings += 1;
     count->total_string_length += (np-cursor);
     state->pop_back();
 
-    return np-cursor;
+    return np;
   }
 
   //This is only called at the start of an array
-  int parse_json_count_array(
+  const unsigned char * parse_json_count_array(
       const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return -1;
+    if(cursor==end) return NULL;
 
     //Have we reached the end of the array?
     if( *cursor==']' )
@@ -285,24 +293,23 @@ namespace fastjson
         // If the array were to have sub elements we'd hit the "]" in state::continue_array instead.
         count->arrays += 1;
         state->pop_back();
-        return cursor-start+1;
+        return cursor+1;
     }
 
     //If not we need to read a real element
     state->back().state = state::continue_array;
     state->back().subelements +=1;
-    int dp =  parse_start_object( cursor, end, count, state );
-    return (dp<0)?dp:((cursor-start)+dp);
+    return parse_start_object( cursor, end, count, state );
   }
 
-  int parse_json_count_array_continue(
+  const unsigned char * parse_json_count_array_continue(
       const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return -1;
+    if(cursor==end) return NULL;
 
     //Have we reached the end of the array?
     if( *cursor==']' )
@@ -310,7 +317,7 @@ namespace fastjson
         count->arrays += 1;
         count->array_elements += state->back().subelements;
         state->pop_back();
-        return cursor-start+1;
+        return cursor+1;
     }
 
     //Do we have another element coming?
@@ -319,30 +326,31 @@ namespace fastjson
       ++cursor;
       state->back().state = state::continue_array;
       state->back().subelements +=1;
-      int dp =  parse_start_object( cursor, end, count, state );
-      return (dp<0)?dp:((cursor-start)+dp);
+      cursor =  parse_start_object( cursor, end, count, state );
+      if(cursor==NULL) return NULL;
+      return cursor;
     }
 
     // We got something unexpected..
-    return -1;
+    return NULL;
   }
 
 
-  int parse_json_count_dict(
+  const unsigned char * parse_json_count_dict(
       const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return -1;
+    if(cursor==end) return NULL;
 
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
     {
         count->dicts += 1;
         state->pop_back();
-        return (cursor-start)+1;
+        return cursor+1;
     }
 
     //Nope.. we'd better be getting a string then
@@ -351,39 +359,38 @@ namespace fastjson
       //Transition the state for when we complete the sub-state, then move into a sub state.
       state->back().state = state::dict_read_value;
       state->push_back( ParserState(state::start_string) );
-      return (cursor-start)+1;
+      return cursor+1;
     }
 
     //Otherwise something bad is happenening
-    return -1;
+    return NULL;
   }
 
-  int parse_json_count_dict_value(
+  const unsigned char * parse_json_count_dict_value(
       const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return -1;
-    if(*cursor!=':') return -1;
+    if(cursor==end) return NULL;
+    if(*cursor!=':') return NULL;
     ++cursor;
 
     //Now we should get an object...
     state->back().state = state::dict_continue;
     state->back().subelements++;
-    int dp =  parse_start_object( cursor, end, count, state );
-    return (dp<0)?dp:((cursor-start)+dp);
+    return  parse_start_object( cursor, end, count, state );
   }
 
-  int parse_json_count_dict_continue(
+  const unsigned char * parse_json_count_dict_continue(
       const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return -1;
+    if(cursor==end) return NULL;
 
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
@@ -391,21 +398,21 @@ namespace fastjson
         count->dict_elements += state->back().subelements;
         count->dicts += 1;
         state->pop_back();
-        return (cursor-start)+1;
+        return cursor+1;
     }
 
     //Nope.. we'd better be getting a comma then a string then
-    if( *cursor!=',') return -1;
+    if( *cursor!=',') return NULL;
     ++cursor;
     cursor = eat_whitespace(cursor,end);
 
-    if(cursor==end) return -1;
-    if( *cursor!='"' ) return -1;
+    if(cursor==end) return NULL;
+    if( *cursor!='"' ) return NULL;
 
     //Transition the state for when we complete the sub-state, then move into a sub state.
     state->back().state = state::dict_read_value;
     state->push_back( ParserState(state::start_string) );
-    return (cursor-start)+1;
+    return cursor+1;
   }
 
   bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
@@ -419,39 +426,37 @@ namespace fastjson
     const unsigned char * cursor = start;
     while( cursor != end )
     {
-      int dp=0;
       switch( state_stack.back().state )
       {
         case state::start_root:
-          dp = parse_json_count_root( cursor, end, count, &state_stack );
+          cursor = parse_json_count_root( cursor, end, count, &state_stack );
           break;
         case state::start_string:
-          dp = parse_json_count_string( cursor, end, count, &state_stack );
+          cursor = parse_json_count_string( cursor, end, count, &state_stack );
           break;
         case state::start_number:
-          dp = parse_json_count_number( cursor, end, count, &state_stack );
+          cursor = parse_json_count_number( cursor, end, count, &state_stack );
           break;
         case state::start_array :
-          dp = parse_json_count_array( cursor, end, count, &state_stack );
+          cursor = parse_json_count_array( cursor, end, count, &state_stack );
           break;
         case state::continue_array :
-          dp = parse_json_count_array_continue( cursor, end, count, &state_stack );
+          cursor = parse_json_count_array_continue( cursor, end, count, &state_stack );
           break;
         case state::dict_start:
-          dp = parse_json_count_dict( cursor, end, count, &state_stack );
+          cursor = parse_json_count_dict( cursor, end, count, &state_stack );
           break;
         case state::dict_read_value:
-          dp = parse_json_count_dict_value( cursor, end, count, &state_stack );
+          cursor = parse_json_count_dict_value( cursor, end, count, &state_stack );
           break;
         case state::dict_continue:
-          dp =  parse_json_count_dict_continue( cursor, end, count, &state_stack );
+          cursor =  parse_json_count_dict_continue( cursor, end, count, &state_stack );
           break;
         default:
           return false;
       }
 
-      if(dp<0) return false;
-      cursor+=dp;
+      if(cursor==NULL) return false;
     }
 
     return state_stack.back().state == state::start_root;
