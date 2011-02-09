@@ -172,12 +172,15 @@ namespace fastjson
     switch (*cursor)
     {
       case '[':
+        count->start_array();
         state->push_back( ParserState(state::start_array) );
         return cursor + 1;
       case '{':
+        count->start_dict();
         state->push_back( ParserState(state::dict_start) );
         return cursor + 1;
       case '"':
+        count->start_string();
         state->push_back( ParserState(state::start_string) );
         return cursor + 1;
       default:
@@ -186,6 +189,7 @@ namespace fastjson
     //Maybe its a number?
     if( isdigit(*cursor) || *cursor=='-' )
     {
+        count->start_number();
         state->push_back( ParserState(state::start_number) );
         return cursor;
     }
@@ -215,7 +219,7 @@ namespace fastjson
       {
         case '"':
           //Are we ending the string?
-          count->strings += 1;
+          count->end_string();
           state->pop_back();
           return newcursor+1;
         case '\\':
@@ -234,26 +238,29 @@ namespace fastjson
               uint32_t v = ( hexdigit(newcursor[0]) << 12) | ( hexdigit(newcursor[1])<<8 ) | hexdigit(newcursor[2])<<4 | hexdigit(newcursor[3] );
               if( v<0x0080 )
               {
-                count->total_string_length++;
+                count->string_add_ubyte( 0 );
               }
               else if ( v<0x0800 )
               {
-                count->total_string_length+=2;
+                count->string_add_ubyte( 0 );
+                count->string_add_ubyte( 0 );
               }
               else if ( v<=0xFFFF )
               {
-                count->total_string_length+=3;
+                count->string_add_ubyte( 0 );
+                count->string_add_ubyte( 0 );
+                count->string_add_ubyte( 0 );
               }
               newcursor+=4;
               break;
             default:
               //TODO: We should check that its a valid escape character
               ++newcursor;
-              count->total_string_length++;
+              count->string_add_ubyte( 0 );
           }
           break;
         default:
-          count->total_string_length++;
+          count->string_add_ubyte( 0 );
           ++newcursor;
       }
     }
@@ -261,19 +268,18 @@ namespace fastjson
   }
 
   const unsigned char * parse_json_count_number(
-      const unsigned char * cursor,
+      const unsigned char * start,
       const unsigned char * end,
       JsonElementCount * count,
       std::vector<ParserState> * state )
   {
-    const unsigned char * np = parse_number( cursor, end );
-    if(np==cursor) return NULL;
+    const unsigned char * cursor = parse_number( start, end );
+    if(cursor==start) return NULL;
 
-    count->strings += 1;
-    count->total_string_length += (np-cursor);
+    count->end_number(start,cursor);
     state->pop_back();
 
-    return np;
+    return cursor;
   }
 
   //This is only called at the start of an array
@@ -291,7 +297,7 @@ namespace fastjson
     {
         //NOTE: The array contains no elements so we don't need to increment array_elements
         // If the array were to have sub elements we'd hit the "]" in state::continue_array instead.
-        count->arrays += 1;
+        count->end_array();
         state->pop_back();
         return cursor+1;
     }
@@ -314,8 +320,7 @@ namespace fastjson
     //Have we reached the end of the array?
     if( *cursor==']' )
     {
-        count->arrays += 1;
-        count->array_elements += state->back().subelements;
+        count->end_array();
         state->pop_back();
         return cursor+1;
     }
@@ -348,7 +353,7 @@ namespace fastjson
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
     {
-        count->dicts += 1;
+        count->end_dict();
         state->pop_back();
         return cursor+1;
     }
@@ -356,6 +361,7 @@ namespace fastjson
     //Nope.. we'd better be getting a string then
     if( *cursor=='"' )
     {
+      count->start_string();
       //Transition the state for when we complete the sub-state, then move into a sub state.
       state->back().state = state::dict_read_value;
       state->push_back( ParserState(state::start_string) );
@@ -395,8 +401,7 @@ namespace fastjson
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
     {
-        count->dict_elements += state->back().subelements;
-        count->dicts += 1;
+        count->end_dict();
         state->pop_back();
         return cursor+1;
     }
@@ -409,6 +414,7 @@ namespace fastjson
     if(cursor==end) return NULL;
     if( *cursor!='"' ) return NULL;
 
+    count->start_string();
     //Transition the state for when we complete the sub-state, then move into a sub state.
     state->back().state = state::dict_read_value;
     state->push_back( ParserState(state::start_string) );
