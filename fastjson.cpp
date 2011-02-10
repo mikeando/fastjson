@@ -118,10 +118,6 @@ const unsigned char * parse_number( const unsigned char * start, const unsigned 
 
 namespace fastjson
 {
-  bool parse_json_counts( const std::string & json_str, JsonElementCount * count )
-  {
-    return parse_json_counts( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), count );
-  }
 
   namespace state
   {
@@ -263,7 +259,7 @@ namespace fastjson
           }
           break;
         default:
-          callback->string_add_ubyte( 0 );
+          callback->string_add_ubyte( *newcursor );
           ++newcursor;
       }
     }
@@ -478,6 +474,11 @@ namespace fastjson
     return state_stack.back().state == state::start_root;
   }
 
+  bool parse_json_counts( const std::string & json_str, JsonElementCount * count )
+  {
+    return parse_json_counts( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), count );
+  }
+
   bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
   {
     return parse<JsonElementCount>(start,end,count);
@@ -492,6 +493,49 @@ namespace fastjson
     }
     std::cout<<"========================="<<std::endl;
   }
+
+  struct XParser
+  {
+      void start_array()  { context.push_back( InArray ); }
+      void start_dict()   { context.push_back( InDict );  }
+      void start_string() {};
+      void start_number() {};
+
+      void end_array() { context.pop_back(); }
+      void end_dict() { context.pop_back(); }
+
+      void end_string() {}
+
+      void string_add_ubyte( const unsigned char uc )
+      {
+        *string_ptr = uc;
+        ++string_ptr;
+      }
+
+      void end_number( const unsigned char * start, const unsigned char * end ) {};
+
+      unsigned char * string_store;
+      unsigned char * string_ptr;
+
+    protected:
+      enum Context { Root, InArray, InDict, NContexts };
+      std::vector<Context> context;
+  };
+
+  bool parse_doc( const std::string & json_str, Document * doc )
+  {
+    return parse_doc( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), doc );
+  }
+
+  bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc )
+  {
+      //This assumes we have enough space...
+      XParser p;
+      p.string_store = doc->string_store;
+      p.string_ptr = doc->string_store;
+      return parse<XParser>( start,end, &p);
+  }
+
 
 
 }

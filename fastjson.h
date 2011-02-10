@@ -55,6 +55,16 @@ namespace fastjson
 
   bool parse_json_counts( const std::string & json_str, JsonElementCount * count );
   bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count );
+
+  class Document
+  {
+    public:
+    unsigned char * string_store;
+  };
+
+  bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc );
+  bool parse_doc( const std::string & json_str, Document * doc );
+
 }
 
 #endif
