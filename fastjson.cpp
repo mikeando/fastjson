@@ -512,7 +512,15 @@ namespace fastjson
         ++string_ptr;
       }
 
-      void end_number( const unsigned char * start, const unsigned char * end ) {};
+      void end_number( const unsigned char * start, const unsigned char * end )
+      {
+        while(start<end)
+        {
+          *string_ptr = *start;
+          ++start;
+          ++string_ptr;
+        }
+      };
 
       unsigned char * string_store;
       unsigned char * string_ptr;
