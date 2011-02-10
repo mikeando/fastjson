@@ -195,7 +195,7 @@ namespace fastjson
 
 
   template<typename T>
-  const unsigned char * parse_json_count_root(
+  const unsigned char * parse_root(
     const unsigned char * start,
     const unsigned char * end,
     T * callback,
@@ -205,7 +205,7 @@ namespace fastjson
   }
 
   template<typename T>
-  const unsigned char * parse_json_count_string(
+  const unsigned char * parse_string(
       const unsigned char * cursor,
       const unsigned char * end,
       T * callback,
@@ -267,13 +267,13 @@ namespace fastjson
   }
 
   template<typename T>
-  const unsigned char * parse_json_count_number(
+  const unsigned char * parse_number(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
       std::vector<ParserState> * state )
   {
-    const unsigned char * cursor = parse_number( start, end );
+    const unsigned char * cursor = ::parse_number( start, end );
     if(cursor==start) return NULL;
 
     callback->end_number(start,cursor);
@@ -284,7 +284,7 @@ namespace fastjson
 
   //This is only called at the start of an array
   template<typename T>
-  const unsigned char * parse_json_count_array(
+  const unsigned char * parse_array(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
@@ -310,7 +310,7 @@ namespace fastjson
   }
 
   template<typename T>
-  const unsigned char * parse_json_count_array_continue(
+  const unsigned char * parse_array_continue(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
@@ -344,7 +344,7 @@ namespace fastjson
 
 
   template<typename T>
-  const unsigned char * parse_json_count_dict(
+  const unsigned char * parse_dict(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
@@ -376,7 +376,7 @@ namespace fastjson
   }
 
   template<typename T>
-  const unsigned char * parse_json_count_dict_value(
+  const unsigned char * parse_dict_value(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
@@ -394,7 +394,7 @@ namespace fastjson
   }
 
   template<typename T>
-  const unsigned char * parse_json_count_dict_continue(
+  const unsigned char * parse_dict_continue(
       const unsigned char * start,
       const unsigned char * end,
       T * callback,
@@ -441,28 +441,28 @@ namespace fastjson
       switch( state_stack.back().state )
       {
         case state::start_root:
-          cursor = parse_json_count_root( cursor, end, callback, &state_stack );
+          cursor = parse_root( cursor, end, callback, &state_stack );
           break;
         case state::start_string:
-          cursor = parse_json_count_string( cursor, end, callback, &state_stack );
+          cursor = parse_string( cursor, end, callback, &state_stack );
           break;
         case state::start_number:
-          cursor = parse_json_count_number( cursor, end, callback, &state_stack );
+          cursor = parse_number( cursor, end, callback, &state_stack );
           break;
         case state::start_array :
-          cursor = parse_json_count_array( cursor, end, callback, &state_stack );
+          cursor = parse_array( cursor, end, callback, &state_stack );
           break;
         case state::continue_array :
-          cursor = parse_json_count_array_continue( cursor, end, callback, &state_stack );
+          cursor = parse_array_continue( cursor, end, callback, &state_stack );
           break;
         case state::dict_start:
-          cursor = parse_json_count_dict( cursor, end, callback, &state_stack );
+          cursor = parse_dict( cursor, end, callback, &state_stack );
           break;
         case state::dict_read_value:
-          cursor = parse_json_count_dict_value( cursor, end, callback, &state_stack );
+          cursor = parse_dict_value( cursor, end, callback, &state_stack );
           break;
         case state::dict_continue:
-          cursor =  parse_json_count_dict_continue( cursor, end, callback, &state_stack );
+          cursor =  parse_dict_continue( cursor, end, callback, &state_stack );
           break;
         default:
           return false;
@@ -474,12 +474,12 @@ namespace fastjson
     return state_stack.back().state == state::start_root;
   }
 
-  bool parse_json_counts( const std::string & json_str, JsonElementCount * count )
+  bool count_elements( const std::string & json_str, JsonElementCount * count )
   {
-    return parse_json_counts( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), count );
+    return count_elements( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), count );
   }
 
-  bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
+  bool count_elements( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
   {
     return parse<JsonElementCount>(start,end,count);
   }
