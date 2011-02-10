@@ -496,64 +496,116 @@ namespace fastjson
 
   struct XParser
   {
-      XParser() { context.push_back( Root ); }
-      void start_array()  { context.push_back( InArray ); }
-      void start_dict()   { context.push_back( InDict );  }
+      XParser() { context.push_back( Context::root() ); }
+
+      Token * add_child(Token::Type type)
+      {
+        Context & ctxt = context.back();
+
+        switch( ctxt.type )
+        {
+          case Root:
+            doc->root.type = type;
+            cur_tok = &doc->root;
+            return cur_tok;
+          case InArray:
+            //For the first entry we wont have a last_entry set yet.
+            if( ! ctxt.c.a.last_entry )
+            {
+              ctxt.c.a.array->ptr = array_ptr;
+            }
+            else
+            {
+              ctxt.c.a.last_entry->next = array_ptr;
+            }
+
+            array_ptr->tok.type = type;
+            array_ptr->next = NULL;
+            cur_tok = &(array_ptr->tok);
+            //We're just gonna grab an array entry off our store and use that.
+            ctxt.c.a.last_entry = array_ptr;
+            ++array_ptr;
+            return cur_tok;
+          case InDict:
+            // We need to behave slightly differently depending on whether we're adding
+            // The first of a KV pair, or the second.
+            // The very first key entry wont have a last_entry
+            if( ctxt.c.d.expecting_key )
+            {
+              if( ! ctxt.c.d.last_entry )
+              {
+                ctxt.c.d.dict->ptr = dict_ptr;
+              }
+              else
+              {
+                ctxt.c.d.last_entry->next = dict_ptr;
+              }
+
+              dict_ptr->key_tok.type = type;
+              dict_ptr->next = NULL;
+              cur_tok = &(dict_ptr->key_tok);
+              ctxt.c.d.last_entry = dict_ptr;
+              ++dict_ptr;
+              ctxt.c.d.expecting_key = false;
+              return cur_tok;
+            }
+            else
+            {
+              //Next pointer should have been set when the key was setup, so we dont need to do that now.
+              cur_tok = &(ctxt.c.d.last_entry->value_tok);
+              cur_tok->type = type;
+              ctxt.c.d.expecting_key = true;
+              return cur_tok;
+            }
+        }
+        //NOTE: Should never get here
+        return NULL;
+      }
+
+      void start_array()
+      {
+        Token * t = add_child(Token::ArrayToken);
+        t->data.array.ptr = NULL;
+        context.push_back( Context::array( &(t->data.array) ) );
+      }
+
+      void start_dict()
+      {
+        Token * t = add_child(Token::DictToken);
+        t->data.dict.ptr = NULL;
+        context.push_back( Context::dict( &(t->data.dict) ) );
+      }
+
       void start_string()
       {
+        /* Token * t = */ add_child(Token::ValueToken);
         string_start = string_ptr;
       };
+
       void start_number()
       {
+        /* Token * t = */ add_child(Token::ValueToken);
         string_start = string_ptr;
       };
 
       void end_array()
       {
         context.pop_back();
-        switch( context.back() )
-        {
-          case Root:
-            doc->root.type=fastjson::Token::ArrayToken;
-            doc->root.data.array.ptr = NULL;
-            break;
-          case InArray:
-          case InDict:
-          case NContexts:
-            ;
-        }
       }
+
       void end_dict()
       {
         context.pop_back();
-        switch( context.back() )
-        {
-          case Root:
-            doc->root.type=fastjson::Token::DictToken;
-            doc->root.data.dict.ptr = NULL;
-            break;
-          case InArray:
-          case InDict:
-          case NContexts:
-            ;
-        }
       }
 
       void end_string()
       {
-        switch( context.back() )
-        {
-          case Root:
-            doc->root.type=fastjson::Token::ValueToken;
-            doc->root.data.value.type_hint=fastjson::ValueType::StringHint;
-            doc->root.data.value.ptr = reinterpret_cast<char*>(string_start);
-            doc->root.data.value.size = string_ptr - string_start;
-            break;
-          case InArray:
-          case InDict:
-          case NContexts:
-            ;
-        }
+        Token * tok = get_current_token();
+
+        tok->type=fastjson::Token::ValueToken;
+        tok->data.value.type_hint=fastjson::ValueType::StringHint;
+        tok->data.value.ptr = reinterpret_cast<char*>(string_start);
+        tok->data.value.size = string_ptr - string_start;
       }
 
       void string_add_ubyte( const unsigned char uc )
@@ -570,30 +622,77 @@ namespace fastjson
           ++start;
           ++string_ptr;
         }
-        switch( context.back() )
-        {
-          case Root:
-            doc->root.type=fastjson::Token::ValueToken;
-            doc->root.data.value.type_hint=fastjson::ValueType::NumberHint;
-            doc->root.data.value.ptr = reinterpret_cast<char*>(string_start);
-            doc->root.data.value.size = string_ptr - string_start;
-            break;
-          case InArray:
-          case InDict:
-          case NContexts:
-            ;
-        }
+
+        Token * tok = get_current_token();
+
+        tok->type=fastjson::Token::ValueToken;
+        tok->data.value.type_hint=fastjson::ValueType::NumberHint;
+        tok->data.value.ptr = reinterpret_cast<char*>(string_start);
+        tok->data.value.size = string_ptr - string_start;
       };
 
       Document * doc;
 
       //This gets updated whenever we start a new string
       unsigned char * string_start;
-
       unsigned char * string_ptr;
 
+      ArrayEntry * array_ptr;
+      DictEntry  * dict_ptr;
+
+      Token * cur_tok;
+
+      Token * get_current_token()
+      {
+        return cur_tok;
+      }
+
+
+
     protected:
-      enum Context { Root, InArray, InDict, NContexts };
+      bool first_in_array;
+
+      enum ContextType { Root, InArray, InDict };
+      struct RootContext {};
+      struct ArrayContext { ArrayType * array; ArrayEntry * last_entry; };
+      struct DictContext  { DictType * dict; DictEntry * last_entry; bool expecting_key; };
+      struct Context
+      {
+        static Context array( ArrayType * at )
+        {
+          Context retval;
+          retval.type=InArray;
+          retval.c.a.array = at;
+          retval.c.a.last_entry = NULL;
+          return retval;
+        }
+
+        static Context dict( DictType * dt )
+        {
+          Context retval;
+          retval.type=InDict;
+          retval.c.d.dict = dt;
+          retval.c.d.last_entry = NULL;
+          retval.c.d.expecting_key = true;
+          return retval;
+        }
+
+        static Context root()
+        {
+          Context retval;
+          retval.type=Root;
+          return retval;
+        }
+
+        ContextType type;
+        union
+        {
+          RootContext  r;
+          ArrayContext a;
+          DictContext  d;
+        } c;
+      };
+
       std::vector<Context> context;
   };
 
@@ -608,6 +707,8 @@ namespace fastjson
       XParser p;
       p.doc = doc;
       p.string_ptr = doc->string_store;
+      p.array_ptr = doc->array_store;
+      p.dict_ptr = doc->dict_store;
       return parse<XParser>( start,end, &p);
   }
 

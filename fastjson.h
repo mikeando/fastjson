@@ -73,6 +73,8 @@ namespace fastjson
     public:
     Token root;
     unsigned char * string_store;
+    ArrayEntry * array_store;
+    DictEntry * dict_store;
   };
 
   bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc );
