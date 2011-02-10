@@ -30,6 +30,58 @@ class TestFixture
 
       saru_assert_equal( std::string("x1234567890x"), std::string( reinterpret_cast<const char*>(buffer) ) );
     }
+
+    void test_empty_array_root()
+    {
+      fastjson::Document doc;
+      bool ok = fastjson::parse_doc( "[]", &doc );
+      saru_assert( ok );
+      
+      //Now we should have a root array element with no children.
+      saru_assert( doc.root.type == fastjson::Token::ArrayToken );
+      saru_assert( doc.root.data.array.ptr == NULL ); 
+    }
+
+    void test_empty_dict_root()
+    {
+      fastjson::Document doc;
+      bool ok = fastjson::parse_doc( "{}", &doc );
+      saru_assert( ok );
+      
+      //Now we should have a root array element with no children.
+      saru_assert( doc.root.type == fastjson::Token::DictToken );
+      saru_assert( doc.root.data.dict.ptr == NULL ); 
+    }
+
+    void test_string_root()
+    {
+      unsigned char buffer[] = "xxxxxxxxxxxx";
+      fastjson::Document doc;
+      doc.string_store = buffer;
+      bool ok = fastjson::parse_doc( "\"hello\"", &doc );
+      saru_assert( ok );
+      
+      //Now we should have a root array element with no children.
+      saru_assert( doc.root.type == fastjson::Token::ValueToken );
+      saru_assert( doc.root.data.value.ptr == reinterpret_cast<char*>(buffer) ); 
+      saru_assert_equal(5u, doc.root.data.value.size);
+      saru_assert_equal( fastjson::ValueType::StringHint, doc.root.data.value.type_hint);
+    }
+
+    void test_number_root()
+    {
+      unsigned char buffer[] = "xxxxxxxxxxxx";
+      fastjson::Document doc;
+      doc.string_store = buffer;
+      bool ok = fastjson::parse_doc( "123", &doc );
+      saru_assert( ok );
+      
+      //Now we should have a root array element with no children.
+      saru_assert( doc.root.type == fastjson::Token::ValueToken );
+      saru_assert( doc.root.data.value.ptr == reinterpret_cast<char*>(buffer) ); 
+      saru_assert_equal(3u, doc.root.data.value.size);
+      saru_assert_equal( fastjson::ValueType::NumberHint, doc.root.data.value.type_hint);
+    }
 };
 
 int main()
@@ -37,6 +89,10 @@ int main()
   saru::TestLogger logger;
   SARU_TEST( TestFixture::test_string_buffer, logger);
   SARU_TEST( TestFixture::test_number_buffer, logger);
+  SARU_TEST( TestFixture::test_empty_array_root, logger);
+  SARU_TEST( TestFixture::test_empty_dict_root, logger);
+  SARU_TEST( TestFixture::test_string_root, logger);
+  SARU_TEST( TestFixture::test_number_root, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;

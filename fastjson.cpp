@@ -496,15 +496,65 @@ namespace fastjson
 
   struct XParser
   {
+      XParser() { context.push_back( Root ); }
       void start_array()  { context.push_back( InArray ); }
       void start_dict()   { context.push_back( InDict );  }
-      void start_string() {};
-      void start_number() {};
+      void start_string()
+      {
+        string_start = string_ptr;
+      };
+      void start_number()
+      {
+        string_start = string_ptr;
+      };
 
-      void end_array() { context.pop_back(); }
-      void end_dict() { context.pop_back(); }
+      void end_array()
+      {
+        context.pop_back();
+        switch( context.back() )
+        {
+          case Root:
+            doc->root.type=fastjson::Token::ArrayToken;
+            doc->root.data.array.ptr = NULL;
+            break;
+          case InArray:
+          case InDict:
+          case NContexts:
+            ;
+        }
+      }
+      void end_dict()
+      {
+        context.pop_back();
+        switch( context.back() )
+        {
+          case Root:
+            doc->root.type=fastjson::Token::DictToken;
+            doc->root.data.dict.ptr = NULL;
+            break;
+          case InArray:
+          case InDict:
+          case NContexts:
+            ;
+        }
+      }
 
-      void end_string() {}
+      void end_string()
+      {
+        switch( context.back() )
+        {
+          case Root:
+            doc->root.type=fastjson::Token::ValueToken;
+            doc->root.data.value.type_hint=fastjson::ValueType::StringHint;
+            doc->root.data.value.ptr = reinterpret_cast<char*>(string_start);
+            doc->root.data.value.size = string_ptr - string_start;
+            break;
+          case InArray:
+          case InDict:
+          case NContexts:
+            ;
+        }
+      }
 
       void string_add_ubyte( const unsigned char uc )
       {
@@ -520,9 +570,26 @@ namespace fastjson
           ++start;
           ++string_ptr;
         }
+        switch( context.back() )
+        {
+          case Root:
+            doc->root.type=fastjson::Token::ValueToken;
+            doc->root.data.value.type_hint=fastjson::ValueType::NumberHint;
+            doc->root.data.value.ptr = reinterpret_cast<char*>(string_start);
+            doc->root.data.value.size = string_ptr - string_start;
+            break;
+          case InArray:
+          case InDict:
+          case NContexts:
+            ;
+        }
       };
 
-      unsigned char * string_store;
+      Document * doc;
+
+      //This gets updated whenever we start a new string
+      unsigned char * string_start;
+
       unsigned char * string_ptr;
 
     protected:
@@ -539,7 +606,7 @@ namespace fastjson
   {
       //This assumes we have enough space...
       XParser p;
-      p.string_store = doc->string_store;
+      p.doc = doc;
       p.string_ptr = doc->string_store;
       return parse<XParser>( start,end, &p);
   }

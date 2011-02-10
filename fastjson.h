@@ -5,6 +5,9 @@
 #include <string>
 
 #include <vector>
+
+#include "fastjson2.h"
+
 namespace fastjson
 {
   struct JsonElementCount
@@ -56,9 +59,19 @@ namespace fastjson
   bool count_elements( const std::string & json_str, JsonElementCount * count );
   bool count_elements( const unsigned char * start, const unsigned char * end, JsonElementCount * count );
 
+  //We over-allocate space for these using malloc.. this way we can access
+  //outside more than just one entry in values. (This saves us one allocation per-cache)
+  struct ArrayCache
+  {
+    uint32_t size;
+    ArrayCache * next;
+    ArrayEntry values[1];
+  };
+
   class Document
   {
     public:
+    Token root;
     unsigned char * string_store;
   };
 

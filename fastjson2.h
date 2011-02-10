@@ -86,21 +86,6 @@ static inline std::string as_string( const Token * tok )
 }
 
 
-//We over-allocate space for these using malloc.. this way we can access
-//outside more than just one entry in values. (This saves us one allocation per-cache)
-struct ArrayCache
-{
-  uint32_t size;
-  ArrayCache * next;
-  ArrayEntry values[1];
-};
-
-struct Document
-{
-  Token root;
-  ArrayCache * arrays;
-};
-
 }
 
 
