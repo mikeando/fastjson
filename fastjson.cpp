@@ -160,10 +160,11 @@ namespace fastjson
   // Returns the pointer to the body of the next object and changes to the
   // appropriate parsing state.
   // returns NULL if it fails
+  template<typename T>
   const unsigned char * parse_start_object(
     const unsigned char * start,
     const unsigned char * end,
-    JsonElementCount * count,
+    T * callback,
     std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -172,15 +173,15 @@ namespace fastjson
     switch (*cursor)
     {
       case '[':
-        count->start_array();
+        callback->start_array();
         state->push_back( ParserState(state::start_array) );
         return cursor + 1;
       case '{':
-        count->start_dict();
+        callback->start_dict();
         state->push_back( ParserState(state::dict_start) );
         return cursor + 1;
       case '"':
-        count->start_string();
+        callback->start_string();
         state->push_back( ParserState(state::start_string) );
         return cursor + 1;
       default:
@@ -189,7 +190,7 @@ namespace fastjson
     //Maybe its a number?
     if( isdigit(*cursor) || *cursor=='-' )
     {
-        count->start_number();
+        callback->start_number();
         state->push_back( ParserState(state::start_number) );
         return cursor;
     }
@@ -197,19 +198,21 @@ namespace fastjson
   }
 
 
+  template<typename T>
   const unsigned char * parse_json_count_root(
     const unsigned char * start,
     const unsigned char * end,
-    JsonElementCount * count,
+    T * callback,
     std::vector<ParserState> * state )
   {
-    return parse_start_object(start,end,count,state);
+    return parse_start_object(start,end,callback,state);
   }
 
+  template<typename T>
   const unsigned char * parse_json_count_string(
       const unsigned char * cursor,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * newcursor=cursor;
@@ -219,7 +222,7 @@ namespace fastjson
       {
         case '"':
           //Are we ending the string?
-          count->end_string();
+          callback->end_string();
           state->pop_back();
           return newcursor+1;
         case '\\':
@@ -238,55 +241,57 @@ namespace fastjson
               uint32_t v = ( hexdigit(newcursor[0]) << 12) | ( hexdigit(newcursor[1])<<8 ) | hexdigit(newcursor[2])<<4 | hexdigit(newcursor[3] );
               if( v<0x0080 )
               {
-                count->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
               }
               else if ( v<0x0800 )
               {
-                count->string_add_ubyte( 0 );
-                count->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
               }
               else if ( v<=0xFFFF )
               {
-                count->string_add_ubyte( 0 );
-                count->string_add_ubyte( 0 );
-                count->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
+                callback->string_add_ubyte( 0 );
               }
               newcursor+=4;
               break;
             default:
               //TODO: We should check that its a valid escape character
               ++newcursor;
-              count->string_add_ubyte( 0 );
+              callback->string_add_ubyte( 0 );
           }
           break;
         default:
-          count->string_add_ubyte( 0 );
+          callback->string_add_ubyte( 0 );
           ++newcursor;
       }
     }
     return NULL;
   }
 
+  template<typename T>
   const unsigned char * parse_json_count_number(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = parse_number( start, end );
     if(cursor==start) return NULL;
 
-    count->end_number(start,cursor);
+    callback->end_number(start,cursor);
     state->pop_back();
 
     return cursor;
   }
 
   //This is only called at the start of an array
+  template<typename T>
   const unsigned char * parse_json_count_array(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -297,7 +302,7 @@ namespace fastjson
     {
         //NOTE: The array contains no elements so we don't need to increment array_elements
         // If the array were to have sub elements we'd hit the "]" in state::continue_array instead.
-        count->end_array();
+        callback->end_array();
         state->pop_back();
         return cursor+1;
     }
@@ -305,13 +310,14 @@ namespace fastjson
     //If not we need to read a real element
     state->back().state = state::continue_array;
     state->back().subelements +=1;
-    return parse_start_object( cursor, end, count, state );
+    return parse_start_object( cursor, end, callback, state );
   }
 
+  template<typename T>
   const unsigned char * parse_json_count_array_continue(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -320,7 +326,7 @@ namespace fastjson
     //Have we reached the end of the array?
     if( *cursor==']' )
     {
-        count->end_array();
+        callback->end_array();
         state->pop_back();
         return cursor+1;
     }
@@ -331,7 +337,7 @@ namespace fastjson
       ++cursor;
       state->back().state = state::continue_array;
       state->back().subelements +=1;
-      cursor =  parse_start_object( cursor, end, count, state );
+      cursor =  parse_start_object( cursor, end, callback, state );
       if(cursor==NULL) return NULL;
       return cursor;
     }
@@ -341,10 +347,11 @@ namespace fastjson
   }
 
 
+  template<typename T>
   const unsigned char * parse_json_count_dict(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -353,7 +360,7 @@ namespace fastjson
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
     {
-        count->end_dict();
+        callback->end_dict();
         state->pop_back();
         return cursor+1;
     }
@@ -361,7 +368,7 @@ namespace fastjson
     //Nope.. we'd better be getting a string then
     if( *cursor=='"' )
     {
-      count->start_string();
+      callback->start_string();
       //Transition the state for when we complete the sub-state, then move into a sub state.
       state->back().state = state::dict_read_value;
       state->push_back( ParserState(state::start_string) );
@@ -372,10 +379,11 @@ namespace fastjson
     return NULL;
   }
 
+  template<typename T>
   const unsigned char * parse_json_count_dict_value(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -386,13 +394,14 @@ namespace fastjson
     //Now we should get an object...
     state->back().state = state::dict_continue;
     state->back().subelements++;
-    return  parse_start_object( cursor, end, count, state );
+    return  parse_start_object( cursor, end, callback, state );
   }
 
+  template<typename T>
   const unsigned char * parse_json_count_dict_continue(
       const unsigned char * start,
       const unsigned char * end,
-      JsonElementCount * count,
+      T * callback,
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
@@ -401,7 +410,7 @@ namespace fastjson
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
     {
-        count->end_dict();
+        callback->end_dict();
         state->pop_back();
         return cursor+1;
     }
@@ -414,19 +423,20 @@ namespace fastjson
     if(cursor==end) return NULL;
     if( *cursor!='"' ) return NULL;
 
-    count->start_string();
+    callback->start_string();
     //Transition the state for when we complete the sub-state, then move into a sub state.
     state->back().state = state::dict_read_value;
     state->push_back( ParserState(state::start_string) );
     return cursor+1;
   }
 
-  bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
+  template<typename T>
+  bool parse( const unsigned char * start, const unsigned char * end, T * callback )
   {
     std::vector<ParserState> state_stack;
     state_stack.push_back( ParserState(state::start_root) );
 
-    if(!count) return false;
+    if(!callback) return false;
     if(start==end) return false;
 
     const unsigned char * cursor = start;
@@ -435,28 +445,28 @@ namespace fastjson
       switch( state_stack.back().state )
       {
         case state::start_root:
-          cursor = parse_json_count_root( cursor, end, count, &state_stack );
+          cursor = parse_json_count_root( cursor, end, callback, &state_stack );
           break;
         case state::start_string:
-          cursor = parse_json_count_string( cursor, end, count, &state_stack );
+          cursor = parse_json_count_string( cursor, end, callback, &state_stack );
           break;
         case state::start_number:
-          cursor = parse_json_count_number( cursor, end, count, &state_stack );
+          cursor = parse_json_count_number( cursor, end, callback, &state_stack );
           break;
         case state::start_array :
-          cursor = parse_json_count_array( cursor, end, count, &state_stack );
+          cursor = parse_json_count_array( cursor, end, callback, &state_stack );
           break;
         case state::continue_array :
-          cursor = parse_json_count_array_continue( cursor, end, count, &state_stack );
+          cursor = parse_json_count_array_continue( cursor, end, callback, &state_stack );
           break;
         case state::dict_start:
-          cursor = parse_json_count_dict( cursor, end, count, &state_stack );
+          cursor = parse_json_count_dict( cursor, end, callback, &state_stack );
           break;
         case state::dict_read_value:
-          cursor = parse_json_count_dict_value( cursor, end, count, &state_stack );
+          cursor = parse_json_count_dict_value( cursor, end, callback, &state_stack );
           break;
         case state::dict_continue:
-          cursor =  parse_json_count_dict_continue( cursor, end, count, &state_stack );
+          cursor =  parse_json_count_dict_continue( cursor, end, callback, &state_stack );
           break;
         default:
           return false;
@@ -466,6 +476,11 @@ namespace fastjson
     }
 
     return state_stack.back().state == state::start_root;
+  }
+
+  bool parse_json_counts( const unsigned char * start, const unsigned char * end, JsonElementCount * count )
+  {
+    return parse<JsonElementCount>(start,end,count);
   }
 
   void print_state_stack( const std::vector<ParserState> & v )
