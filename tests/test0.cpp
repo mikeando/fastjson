@@ -288,6 +288,54 @@ class TestFixture
       saru_assert_equal( 9u, count.n_string_length() );
     }
 
+    void count_bare_litteral_true()
+    {
+      saru_assert( fastjson::count_elements( "true", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 0u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
+    void count_bare_litteral_false()
+    {
+      saru_assert( fastjson::count_elements( "false", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 0u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
+    void count_bare_litteral_null()
+    {
+      saru_assert( fastjson::count_elements( "null", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 0u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
+    void count_litteral_true()
+    {
+      saru_assert( fastjson::count_elements( "[true]", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 1u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
+    void count_litteral_false()
+    {
+      saru_assert( fastjson::count_elements( "[false]", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 1u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
+    void count_litteral_null()
+    {
+      saru_assert( fastjson::count_elements( "[null]", &count ) );
+      saru_assert_equal( 0, count.n_strings() );
+      saru_assert_equal( 1u, count.n_array_elements() );
+      saru_assert_equal( 0u, count.n_dict_elements() );
+    }
+
 };
 
 int main()
@@ -325,6 +373,12 @@ int main()
   SARU_TEST( TestFixture::count_number_simple_int, logger);
   SARU_TEST( TestFixture::count_number_neg_int, logger);
   SARU_TEST( TestFixture::count_number_simple_float, logger);
+  SARU_TEST( TestFixture::count_bare_litteral_true, logger);
+  SARU_TEST( TestFixture::count_bare_litteral_false, logger);
+  SARU_TEST( TestFixture::count_bare_litteral_null, logger);
+  SARU_TEST( TestFixture::count_litteral_true, logger);
+  SARU_TEST( TestFixture::count_litteral_false, logger);
+  SARU_TEST( TestFixture::count_litteral_null, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;

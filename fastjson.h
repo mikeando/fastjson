@@ -29,6 +29,10 @@ namespace fastjson
       void start_string() {};
       void start_number() {};
 
+      void on_true()  { counts[ context.back() ]++; };
+      void on_false() { counts[ context.back() ]++; };
+      void on_null()  { counts[ context.back() ]++; };
+
       void end_array() { ++arrays; context.pop_back(); counts[ context.back() ]++; }
       void end_dict() { ++dicts; context.pop_back(); counts[ context.back() ]++; }
 

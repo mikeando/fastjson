@@ -180,6 +180,21 @@ namespace fastjson
         callback->start_string();
         state->push_back( ParserState(state::start_string) );
         return cursor + 1;
+      case 't':
+        if( end - cursor  < 4 ) return NULL;
+        if( cursor[1]!='r' || cursor[2]!='u' || cursor[3]!='e' ) return NULL;
+        callback->on_true();
+        return cursor + 4;
+      case 'f':
+        if( end - cursor  < 5 ) return NULL;
+        if( cursor[1]!='a' || cursor[2]!='l' || cursor[3]!='s' || cursor[4]!='e' ) return NULL;
+        callback->on_false();
+        return cursor + 5;
+      case 'n':
+        if( end - cursor  < 4 ) return NULL;
+        if( cursor[1]!='u' || cursor[2]!='l' || cursor[3]!='l' ) return NULL;
+        callback->on_null();
+        return cursor + 4;
       default:
         ;
     }
@@ -581,6 +596,19 @@ namespace fastjson
         /* Token * t = */ add_child(Token::ValueToken);
         string_start = string_ptr;
       };
+
+      void on_true()
+      {
+      };
+
+      void on_false()
+      {
+      };
+
+      void on_null()
+      {
+      };
+
 
       void start_number()
       {
