@@ -196,6 +196,33 @@ class TestFixture
       saru_error("NYI");
     }
 
+    void naked_literal_true()
+    {
+      fastjson::Document doc;
+      bool ok = fastjson::parse_doc( "true" , &doc );
+      saru_assert(ok);
+
+      saru_assert_equal( fastjson::Token::LiteralTrueToken, doc.root.type );
+    }
+
+    void naked_literal_false()
+    {
+      fastjson::Document doc;
+      bool ok = fastjson::parse_doc( "false" , &doc );
+      saru_assert(ok);
+
+      saru_assert_equal( fastjson::Token::LiteralFalseToken, doc.root.type );
+    }
+
+    void naked_literal_null()
+    {
+      fastjson::Document doc;
+      bool ok = fastjson::parse_doc( "null" , &doc );
+      saru_assert(ok);
+
+      saru_assert_equal( fastjson::Token::LiteralNullToken, doc.root.type );
+    }
+
 };
 
 int main()
@@ -210,6 +237,9 @@ int main()
   SARU_TEST( TestFixture::test_array_of_strings, logger);
   SARU_TEST( TestFixture::test_complex_dict, logger );
   SARU_TEST( TestFixture::complex2, logger );
+  SARU_TEST( TestFixture::naked_literal_true, logger );
+  SARU_TEST( TestFixture::naked_literal_false, logger );
+  SARU_TEST( TestFixture::naked_literal_null, logger );
   logger.printSummary();
 
   return logger.allOK()?0:1;

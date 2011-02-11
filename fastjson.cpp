@@ -599,14 +599,17 @@ namespace fastjson
 
       void on_true()
       {
+        add_child( Token::LiteralTrueToken );
       };
 
       void on_false()
       {
+        add_child( Token::LiteralFalseToken );
       };
 
       void on_null()
       {
+        add_child( Token::LiteralNullToken );
       };
 
 
