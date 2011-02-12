@@ -124,28 +124,37 @@ namespace fastjson
     return 0;
   }
 
-  unsigned char * write_invalid_unicode_marker( unsigned char * buffer, bool escape_unicode_errors )
+  struct Writer
+  {
+    char * buffer;
+    Writer * write( char c )
+    {
+      *buffer = c;
+      ++buffer;
+      return this;
+    }
+  };
+
+  void write_invalid_unicode_marker( Writer * w, bool escape_unicode_errors )
   {
     if( escape_unicode_errors )
     {
-      buffer[0] = '\\';
-      buffer[1] = 'u';
-      buffer[2] = 'F';
-      buffer[3] = 'F';
-      buffer[4] = 'F';
-      buffer[5] = 'D';
-      return buffer+6;
+      w->write('\\');
+      w->write('u');
+      w->write('F');
+      w->write('F');
+      w->write('F');
+      w->write('D');
     }
     else
     {
-      buffer[0] = 0xFF;
-      buffer[1] = 0xFD;
-      return buffer+2;
+      w->write(0xFF);
+      w->write(0xFD);
     }
   }
 
 
-  size_t serialize_inplace( const Token * tok, char * buffer )
+  void serialize_inplace( const Token * tok, Writer * w )
   {
     bool escape_unicode_errors = true;
     bool escape_unicode = true;
@@ -155,65 +164,53 @@ namespace fastjson
       case Token::ArrayToken:
         if( tok->data.array.ptr==NULL )
         {
-          buffer[0]='[';
-          buffer[1]=']';
-          return 2;
+          w->write('[')
+           ->write(']');
+          return;
         }
         else
         {
-          char * cursor = buffer;
-          *cursor='[';
-          ++cursor;
+          w->write('[');
 
           //Loop through the elements and add them in.
           ArrayEntry * child = tok->data.array.ptr;
           while(child)
           {
-            cursor += serialize_inplace( &child->tok, cursor );
+            serialize_inplace( &child->tok, w );
             if( child->next)
             {
-              *cursor=',';
-              ++cursor;
+              w->write(',');
             }
-
             child=child->next;
           }
-          *cursor=']';
-          ++cursor;
-
-          return cursor - buffer;
+          w->write(']');
+          return;
         }
       case Token::DictToken:
         if( tok->data.dict.ptr==NULL )
         {
-          buffer[0]='{';
-          buffer[1]='}';
-          return 2;
+          w->write('{');
+          w->write('}');
+          return;
         }
         else
         {
-          char * cursor = buffer;
-          *cursor='{';
-          ++cursor;
+          w->write('{');
           //Loop through the elements and add them in.
           DictEntry * child = tok->data.dict.ptr;
           while(child)
           {
-            cursor+=serialize_inplace( &child->key_tok, cursor );
-            *cursor=':';
-            ++cursor;
-            cursor+=serialize_inplace( &child->value_tok, cursor );
+            serialize_inplace( &child->key_tok, w );
+            w->write(':');
+            serialize_inplace( &child->value_tok, w );
             if( child->next)
             {
-              *cursor=',';
-              ++cursor;
+              w->write(',');
             }
             child=child->next;
           }
-          *cursor='}';
-          ++cursor;
-
-          return cursor-buffer;
+          w->write('}');
+          return;
         }
       case Token::ValueToken:
         switch( tok->data.value.type_hint)
@@ -222,15 +219,14 @@ namespace fastjson
             {
               if (tok->data.value.ptr==NULL)
               {
-                buffer[0]='"';
-                buffer[1]='"';
-                return 2;
+                w->write('"');
+                w->write('"');
+                return;
               }
               else
               {
                 //TODO: we need to json escape this string...
-                buffer[0]='"';
-                unsigned char * b_ptr = reinterpret_cast<unsigned char*>( buffer+1 );
+                w->write('"');
                 unsigned char * start = reinterpret_cast<unsigned char*>( tok->data.value.ptr );
                 unsigned char * end = start + tok->data.value.size;
                 while( start != end )
@@ -238,29 +234,27 @@ namespace fastjson
                   switch( decode_types[*start] )
                   {
                     case FJ_NOR: // : Doesn't need anything done to it
-                      *b_ptr = *start;
-                      ++b_ptr;
+                      w->write( *start );
                       ++start;
                       break;
                     case FJ_RUC: // : 1 byte requiring unicode encoding
-                      b_ptr[0] = '\\';
-                      b_ptr[1] = 'u';
-                      b_ptr[2] = '0';
-                      b_ptr[3] = '0';
-                      b_ptr[4] = hex_digit[ *start >> 4 ];
-                      b_ptr[5] = hex_digit[ *start & 0x0F ];
-                      b_ptr+=6;
+                      w->write('\\');
+                      w->write('u');
+                      w->write('0');
+                      w->write('0');
+                      w->write(hex_digit[ *start >> 4 ]);
+                      w->write(hex_digit[ *start & 0x0F ]);
                       ++start;
                       break;
                     case FJ_UCC: // : Unicode continuation character
                       //SHOULD _NEVER_ GET THIS IN A VALID UTF-8 STREAM
-                      b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                      write_invalid_unicode_marker(w, escape_unicode_errors);
                       ++start;
                       break;
                     case FJ_UC2: // : Unicode 2 byte start character
                       if( end-start < 1 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -268,7 +262,7 @@ namespace fastjson
                       //Is the second byte a valid continuation character?
                       if( decode_types[ *(start+1) ] != FJ_UCC )
                       {
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -279,27 +273,25 @@ namespace fastjson
                         uint32_t u = ( *start & 0x1F) << 6;
                         u |= ( (*(start+1)) & 0x3F );
 
-                        b_ptr[0] = '\\';
-                        b_ptr[1] = 'u';
-                        b_ptr[2] = hex_digit[ (u >> 12) & 0x0F];
-                        b_ptr[3] = hex_digit[ (u >> 8 ) & 0x0F];
-                        b_ptr[4] = hex_digit[ (u >> 4 ) & 0x0F];
-                        b_ptr[5] = hex_digit[ (u >> 0 ) & 0x0F];
-                        b_ptr+=6;
+                        w->write('\\');
+                        w->write('u');
+                        w->write(hex_digit[ (u >> 12) & 0x0F]);
+                        w->write(hex_digit[ (u >> 8 ) & 0x0F]);
+                        w->write(hex_digit[ (u >> 4 ) & 0x0F]);
+                        w->write(hex_digit[ (u >> 0 ) & 0x0F]);
                         start+=2;
                       }
                       else
                       {
-                        b_ptr[0] = *start;
-                        b_ptr[1] = *(start+1);
-                        b_ptr+=2;
+                        w->write(*start);
+                        w->write(*(start+1));
                         start+=2;
                       }
                       break;
                     case FJ_UC3: // : Unicode 2 byte start character
                       if( end-start < 2 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -310,7 +302,7 @@ namespace fastjson
                           decode_types[ *(start+2) ] != FJ_UCC
                         )
                       {
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -321,21 +313,19 @@ namespace fastjson
                         uint32_t u = (*start & 0x0F) << 12;
                         u |= ( (*(start+1)) & 0x3F ) << 6;
                         u |= ( (*(start+2)) & 0x3F ) << 0;
-                        b_ptr[0] = '\\';
-                        b_ptr[1] = 'u';
-                        b_ptr[2] = hex_digit[ (u >> 12) & 0x0F];
-                        b_ptr[3] = hex_digit[ (u >> 8 ) & 0x0F];
-                        b_ptr[4] = hex_digit[ (u >> 4 ) & 0x0F];
-                        b_ptr[5] = hex_digit[ (u >> 0 ) & 0x0F];
-                        b_ptr+=6;
+                        w->write('\\');
+                        w->write('u');
+                        w->write(hex_digit[ (u >> 12) & 0x0F]);
+                        w->write(hex_digit[ (u >> 8 ) & 0x0F]);
+                        w->write(hex_digit[ (u >> 4 ) & 0x0F]);
+                        w->write(hex_digit[ (u >> 0 ) & 0x0F]);
                         start+=3;
                       }
                       else
                       {
-                        b_ptr[0] = *start;
-                        b_ptr[1] = *(start+1);
-                        b_ptr[2] = *(start+2);
-                        b_ptr+=3;
+                        w->write(*start);
+                        w->write(*(start+1));
+                        w->write(*(start+2));
                         start+=3;
                       }
                       break;
@@ -343,7 +333,7 @@ namespace fastjson
                     case FJ_UC4: // : Unicode 4 byte start character
                       if( end-start < 3 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -355,7 +345,7 @@ namespace fastjson
                           decode_types[ *(start+3) ] != FJ_UCC
                         )
                       {
-                        b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                        write_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -373,47 +363,43 @@ namespace fastjson
                         unsigned long surrogate_high = 0xD800 + ( uccp_mod >> 10 );
                         unsigned long surrogate_low  = 0xDC00 + ( uccp_mod & 0x3FF );
 
-                        b_ptr[0]  = '\\';
-                        b_ptr[1]  = 'u';
-                        b_ptr[2]  = hex_digit[ (surrogate_high >> 12) & 0x0F];
-                        b_ptr[3]  = hex_digit[ (surrogate_high >> 8 ) & 0x0F];
-                        b_ptr[4]  = hex_digit[ (surrogate_high >> 4 ) & 0x0F];
-                        b_ptr[5]  = hex_digit[ (surrogate_high >> 0 ) & 0x0F];
-                        b_ptr[6]  = '\\';
-                        b_ptr[7]  = 'u';
-                        b_ptr[8]  = hex_digit[ (surrogate_low >> 12) & 0x0F];
-                        b_ptr[9]  = hex_digit[ (surrogate_low >> 8 ) & 0x0F];
-                        b_ptr[10] = hex_digit[ (surrogate_low >> 4 ) & 0x0F];
-                        b_ptr[11] = hex_digit[ (surrogate_low >> 0 ) & 0x0F];
-                        b_ptr+=12;
+                        w->write('\\');
+                        w->write('u');
+                        w->write(hex_digit[ (surrogate_high >> 12) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_high >> 8 ) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_high >> 4 ) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_high >> 0 ) & 0x0F]);
+                        w->write('\\');
+                        w->write('u');
+                        w->write(hex_digit[ (surrogate_low >> 12) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_low >> 8 ) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_low >> 4 ) & 0x0F]);
+                        w->write(hex_digit[ (surrogate_low >> 0 ) & 0x0F]);
                         start+=4;
                       }
                       else
                       {
-                        b_ptr[0] = *start;
-                        b_ptr[1] = *(start+1);
-                        b_ptr[2] = *(start+2);
-                        b_ptr[3] = *(start+3);
-                        b_ptr+=4;
+                        w->write(*start);
+                        w->write(*(start+1));
+                        w->write(*(start+2));
+                        w->write(*(start+3));
                         start+=4;
                       }
                       break;
                     case FJ_ESC: // : Has nice (required) escape
-                      b_ptr[0]='\\';
-                      b_ptr[1]='?';
-                      b_ptr+=2;
+                      w->write('\\');
+                      w->write('?');
                       start+=1;
                       break;
                     case FJ_ERR: // : Should not occur in a UTF-8 stream
-                      b_ptr = write_invalid_unicode_marker(b_ptr, escape_unicode_errors);
+                      write_invalid_unicode_marker(w, escape_unicode_errors);
                       ++start;
                       break;
                   }
                 }
                 //Return something here?
-                *b_ptr='"';
-                ++b_ptr;
-                return b_ptr - reinterpret_cast<unsigned char*>(buffer);
+                w->write('"');
+                return;
               }
             }
             break;
@@ -421,28 +407,38 @@ namespace fastjson
             {
               if (tok->data.value.ptr==NULL)
               {
-                buffer[0]='0';
-                return 1;
+                w->write('0');
+                return;
               }
               else
               {
-                memcpy(buffer,tok->data.value.ptr, tok->data.value.size);
-                return tok->data.value.size;
+                for(unsigned int i=0; i<tok->data.value.size; ++i)
+                  w->write( tok->data.value.ptr[i] );
+                return;
               }
             }
             break;
         }
       case Token::LiteralTrueToken:
-        buffer[0]='t';buffer[1]='r';buffer[2]='u';buffer[3]='e';
-        return 4;
+        w->write('t'); w->write('r'); w->write('u'); w->write('e'); 
+        return;
       case Token::LiteralFalseToken:
-        buffer[0]='f';buffer[1]='a';buffer[2]='l';buffer[3]='s';buffer[4]='e';
-        return 5;
+        w->write('f'); w->write('a'); w->write('l'); w->write('s'); w->write('e'); 
+        return;
       case Token::LiteralNullToken:
-        buffer[0]='n';buffer[1]='u';buffer[2]='l';buffer[3]='l';
-        return 4;
+        w->write('n'); w->write('u'); w->write('l'); w->write('l'); 
+        return;
     }
-    return 0;
+    return;
   }
+
+  size_t serialize_inplace( fastjson::Token const * tok, char * buffer )
+  {
+    Writer w;
+    w.buffer = buffer;
+    serialize_inplace( tok, &w );
+    return w.buffer - buffer;
+  }
+     
   
 }
