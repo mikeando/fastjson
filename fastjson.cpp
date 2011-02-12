@@ -219,6 +219,18 @@ namespace fastjson
     return parse_start_object(start,end,callback,state);
   }
 
+  const unsigned char * read_unicode_escape( const unsigned char * start, const unsigned char * end, uint32_t * val )
+  {
+     //We need at least 6 characters \uxxxx
+     if( end-start < 6 ) return NULL;
+     if( start[0] != '\\' ) return NULL;
+     if( start[1] != 'u' ) return NULL;
+     if( ! ( ishex( start[2] ) && ishex( start[3] ) && ishex( start[4] ) && ishex( start[5] ) ) )
+       return NULL;
+     *val = ( hexdigit(start[2]) << 12) | ( hexdigit(start[3])<<8 ) | hexdigit(start[4])<<4 | hexdigit(start[5] );
+    return start+6;
+  }
+
   template<typename T>
   const unsigned char * parse_string(
       const unsigned char * cursor,
@@ -244,28 +256,69 @@ namespace fastjson
           switch(*newcursor)
           {
             case 'u': //Unicode escape.
-              ++newcursor;
-              //We need 4 hex digits after the u
-              if(newcursor+4 >= end) return NULL;
-              if( ! ( ishex( newcursor[0] ) && ishex( newcursor[1] ) && ishex( newcursor[2] ) && ishex( newcursor[3] ) ) )
-                return NULL;
-              uint32_t v = ( hexdigit(newcursor[0]) << 12) | ( hexdigit(newcursor[1])<<8 ) | hexdigit(newcursor[2])<<4 | hexdigit(newcursor[3] );
+              uint32_t v;
+              newcursor = read_unicode_escape( newcursor-1, end, &v );
+              if( ! newcursor ) return NULL;
+
               if( v<0x0080 )
               {
-                callback->string_add_ubyte( 0 );
+                callback->string_add_ubyte( v );
               }
               else if ( v<0x0800 )
               {
-                callback->string_add_ubyte( 0 );
-                callback->string_add_ubyte( 0 );
+                // v = 00000yyy yyxxxxxx
+                // two bytes 110yyyyy 10xxxxxx
+                callback->string_add_ubyte( 0xC0 | ( ( v >> 6) & 0x1F) );
+                callback->string_add_ubyte( 0x80 | ( ( v >> 0) & 0x3F) );
               }
               else if ( v<=0xFFFF )
               {
-                callback->string_add_ubyte( 0 );
-                callback->string_add_ubyte( 0 );
-                callback->string_add_ubyte( 0 );
+              //Handling surrogate pairs is tricky
+/*
+UTF-16 converts these into two 16-bit code units, called a surrogate pair, by
+the following scheme: 0x10000 is subtracted from the code point, leaving a 20
+bit number in the range 0..0xFFFFF.  The top ten bits (a number in the range
+0..0x3FF) are added to 0xD800 to give the first code unit or high surrogate,
+which will be in the range 0xD800..0xDBFF.  The low ten bits (also in the range
+0..0x3FF) are added to 0xDC00 to give the second code unit or low surrogate,
+which will be in the range 0xDC00..0xDFFF.
+*/
+                /* Are we dealing with the first codepoint of a surrogate pair */
+                if( v>=0xD800 && v<=0xDBFF )
+                {
+                  uint32_t nextv;
+                  newcursor = read_unicode_escape( newcursor, end, & nextv );
+                  if( ! newcursor ) return NULL;
+                  if( nextv>=0xDC00 && nextv<=0xDFFF )
+                  {
+                    uint32_t vlow = v-0xD800;
+                    uint32_t vhigh = nextv-0xDC00;
+                    uint32_t unicode_code_value = ( vhigh << 10 ) | vlow;
+
+                    callback->string_add_ubyte( 0xF0 | ( (unicode_code_value >> 18) & 0x07) );
+                    callback->string_add_ubyte( 0x80 | ( (unicode_code_value >> 12) & 0x3F) );
+                    callback->string_add_ubyte( 0x80 | ( (unicode_code_value >> 6 ) & 0x3F) );
+                    callback->string_add_ubyte( 0x80 | ( (unicode_code_value >> 0 ) & 0x3F) );
+                  }
+                  else
+                  {
+                    return NULL;
+                  }
+                }
+                /* We should _never_ get a second code point of a surrogate pair here */
+                else if( v>=0xDC00 && v<=0xDFFF )
+                {
+                  return NULL;
+                }
+                else
+                {
+                  // v = zzzzyyyy yyxxxxxx
+                  // three bytes 1110zzzz 10yyyyyy 10xxxxxx
+                  callback->string_add_ubyte( 0xE0 | ( (v >> 12) & 0x0F) );
+                  callback->string_add_ubyte( 0x80 | ( (v >> 6 ) & 0x3F) );
+                  callback->string_add_ubyte( 0x80 | ( (v >> 0 ) & 0x3F) );
+                }
               }
-              newcursor+=4;
               break;
             default:
               //TODO: We should check that its a valid escape character

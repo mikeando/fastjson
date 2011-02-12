@@ -223,6 +223,52 @@ class TestFixture
       saru_assert_equal( fastjson::Token::LiteralNullToken, doc.root.type );
     }
 
+    void test_unicode_1byte()
+    {
+      unsigned char buffer[] = "xxxxxxx";
+      fastjson::Document doc;
+      doc.string_store = buffer+1;
+      bool ok = fastjson::parse_doc( "\"\\u007F\"" , &doc );
+      saru_assert_equal( fastjson::Token::ValueToken, doc.root.type );
+      saru_assert_equal( 1u, doc.root.data.value.size );
+      saru_assert_equal( (void*)(buffer+1), doc.root.data.value.ptr );
+      saru_assert_equal( 'x', *buffer );
+      saru_assert_equal( 0x7F, *(buffer+1) );
+      saru_assert_equal( 'x', *(buffer+2) );
+    }
+
+    void test_unicode_2byte()
+    {
+      unsigned char buffer[] = "xxxxxxx";
+      fastjson::Document doc;
+      doc.string_store = buffer+1;
+      bool ok = fastjson::parse_doc( "\"\\u00A2\"" , &doc );
+      saru_assert_equal( fastjson::Token::ValueToken, doc.root.type );
+      saru_assert_equal( 2u, doc.root.data.value.size );
+      saru_assert_equal( (void*)(buffer+1), doc.root.data.value.ptr );
+      saru_assert_equal( 'x', *buffer );
+      saru_assert_equal( 0xC2, *(buffer+1) );
+      saru_assert_equal( 0xA2, *(buffer+2) );
+      saru_assert_equal( 'x', *(buffer+3) );
+    }
+
+    void test_unicode_3byte()
+    {
+      unsigned char buffer[] = "xxxxxxx";
+      fastjson::Document doc;
+      doc.string_store = buffer+1;
+      bool ok = fastjson::parse_doc( "\"z\\u20ACz\"" , &doc );
+      saru_assert_equal( fastjson::Token::ValueToken, doc.root.type );
+      saru_assert_equal( 5u, doc.root.data.value.size );
+      saru_assert_equal( (void*)(buffer+1), doc.root.data.value.ptr );
+      saru_assert_equal( 'x', *buffer );
+      saru_assert_equal( 'z', *(buffer+1) );
+      saru_assert_equal( 0xE2, *(buffer+2) );
+      saru_assert_equal( 0x82, *(buffer+3) );
+      saru_assert_equal( 0xAC, *(buffer+4) );
+      saru_assert_equal( 'z', *(buffer+5) );
+      saru_assert_equal( 'x', *(buffer+6) );
+    }
 };
 
 int main()
@@ -240,6 +286,10 @@ int main()
   SARU_TEST( TestFixture::naked_literal_true, logger );
   SARU_TEST( TestFixture::naked_literal_false, logger );
   SARU_TEST( TestFixture::naked_literal_null, logger );
+  SARU_TEST( TestFixture::test_unicode_1byte, logger );
+  SARU_TEST( TestFixture::test_unicode_2byte, logger );
+  SARU_TEST( TestFixture::test_unicode_3byte, logger );
+
   logger.printSummary();
 
   return logger.allOK()?0:1;

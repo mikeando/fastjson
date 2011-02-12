@@ -153,6 +153,46 @@ class TestFixture
       saru_assert_equal( "1", fastjson::as_string(&tok) );
     }
 
+    void serialize_escaped_unicode_1byte()
+    {
+      unsigned char buffer[] = { 'a', 0x7F, 'a' };
+      char result[] = "xxxxxxxxxxxx";
+
+      tok.type = fastjson::Token::ValueToken;
+      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.data.value.size = 3;
+      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
+      saru_assert_equal( std::string("x\"a\\u007Fa\"x"), std::string(result) );
+    }
+
+    void serialize_escaped_unicode_2byte()
+    {
+      unsigned char buffer[] = { 'a', 0xC2, 0xA2, 'a' };
+      char result[] = "xxxxxxxxxxxx";
+
+      tok.type = fastjson::Token::ValueToken;
+      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.data.value.size = 4;
+      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+
+      saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
+      saru_assert_equal( std::string("x\"a\\u00A2a\"x"), std::string(result) );
+    }
+
+    void serialize_escaped_unicode_3byte()
+    {
+      unsigned char buffer[] = { 'a', 0xE2, 0x82, 0xAC, 'a' };
+      char result[] = "xxxxxxxxxxxx";
+
+      tok.type = fastjson::Token::ValueToken;
+      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.data.value.size = 5;
+      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+
+      saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
+      saru_assert_equal( std::string("x\"a\\u20ACa\"x"), std::string(result) );
+    }
 
 };
 
@@ -173,6 +213,9 @@ int main()
   SARU_TEST( TestFixture::serialize_nested_arrays, logger);
   SARU_TEST( TestFixture::serialize_simple_dict, logger);
   SARU_TEST( TestFixture::serialize_number, logger);
+  SARU_TEST( TestFixture::serialize_escaped_unicode_1byte, logger);
+  SARU_TEST( TestFixture::serialize_escaped_unicode_2byte, logger);
+  SARU_TEST( TestFixture::serialize_escaped_unicode_3byte, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;
