@@ -194,6 +194,20 @@ class TestFixture
       saru_assert_equal( std::string("x\"a\\u20ACa\"x"), std::string(result) );
     }
 
+    void serialize_escaped_unicode_4byte()
+    {
+      unsigned char buffer[] = { 'a', 0xF0, 0x9D, 0x84, 0x9E, 'a' };
+      char result[] = "xxxxxxxxxxxxxxxxxx";
+
+      tok.type = fastjson::Token::ValueToken;
+      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.data.value.size = 6;
+      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+
+      saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
+      saru_assert_equal( std::string("x\"a\\uD834\\uDD1Ea\"x"), std::string(result) );
+    }
+
 };
 
 int main()
@@ -216,6 +230,7 @@ int main()
   SARU_TEST( TestFixture::serialize_escaped_unicode_1byte, logger);
   SARU_TEST( TestFixture::serialize_escaped_unicode_2byte, logger);
   SARU_TEST( TestFixture::serialize_escaped_unicode_3byte, logger);
+  SARU_TEST( TestFixture::serialize_escaped_unicode_4byte, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;

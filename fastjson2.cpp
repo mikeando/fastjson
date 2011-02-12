@@ -363,18 +363,28 @@ namespace fastjson
                       //Decode the unicode.. we need a surrogate pair :(
                       if( escape_unicode )
                       {
-                        b_ptr[0] = '\\';
-                        b_ptr[1] = 'u';
-                        b_ptr[2] = '?';
-                        b_ptr[3] = '?';
-                        b_ptr[4] = '?';
-                        b_ptr[5] = '?';
-                        b_ptr[0] = '\\';
-                        b_ptr[1] = 'u';
-                        b_ptr[2] = '?';
-                        b_ptr[3] = '?';
-                        b_ptr[4] = '?';
-                        b_ptr[5] = '?';
+                        unsigned long uccp = (*start & 0x07) << 18;
+                        uccp |= ( static_cast<unsigned char>(*(start+1)) & 0x3F ) << 12;
+                        uccp |= ( static_cast<unsigned char>(*(start+2)) & 0x3F ) << 6;
+                        uccp |= ( static_cast<unsigned char>(*(start+3)) & 0x3F ) << 0;
+
+                        // Now convert into surrogate pair
+                        unsigned long uccp_mod = uccp - 0x10000; // offset from the BMP
+                        unsigned long surrogate_high = 0xD800 + ( uccp_mod >> 10 );
+                        unsigned long surrogate_low  = 0xDC00 + ( uccp_mod & 0x3FF );
+
+                        b_ptr[0]  = '\\';
+                        b_ptr[1]  = 'u';
+                        b_ptr[2]  = hex_digit[ (surrogate_high >> 12) & 0x0F];
+                        b_ptr[3]  = hex_digit[ (surrogate_high >> 8 ) & 0x0F];
+                        b_ptr[4]  = hex_digit[ (surrogate_high >> 4 ) & 0x0F];
+                        b_ptr[5]  = hex_digit[ (surrogate_high >> 0 ) & 0x0F];
+                        b_ptr[6]  = '\\';
+                        b_ptr[7]  = 'u';
+                        b_ptr[8]  = hex_digit[ (surrogate_low >> 12) & 0x0F];
+                        b_ptr[9]  = hex_digit[ (surrogate_low >> 8 ) & 0x0F];
+                        b_ptr[10] = hex_digit[ (surrogate_low >> 4 ) & 0x0F];
+                        b_ptr[11] = hex_digit[ (surrogate_low >> 0 ) & 0x0F];
                         b_ptr+=12;
                         start+=4;
                       }
