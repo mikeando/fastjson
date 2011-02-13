@@ -115,6 +115,8 @@ int main()
 
   bool ok = fastjson::parse_doc( json, &doc );
 
+  std::string s = fastjson::as_string( & doc.root );
+
   delete [] strings;
   delete [] arrays;
   delete [] dicts;
