@@ -8,6 +8,9 @@
 
 #include "fastjson2.h"
 
+//TODO: Remove this when we have better error handling.
+#include <iostream>
+
 namespace fastjson
 {
   struct JsonElementCount
@@ -38,7 +41,12 @@ namespace fastjson
 
       void end_string() { ++strings; counts[ context.back() ]++; } //Should this be changed to be the same as end_number?
       void string_add_ubyte( const unsigned char ) { total_string_length++; }
-      void end_number( const unsigned char * start, const unsigned char * end ) { ++strings; counts[ context.back() ]++; total_string_length = ( end-start); };
+      void end_number( const unsigned char * start, const unsigned char * end )
+      {
+        ++strings;
+        counts[ context.back() ]++;
+        total_string_length += ( end-start);
+      };
 
       uint32_t n_arrays()  const { return arrays; }
       uint32_t n_dicts()   const { return dicts; }
@@ -46,6 +54,17 @@ namespace fastjson
       uint32_t n_array_elements() const { return counts[InArray]; }
       uint32_t n_dict_elements() const { return counts[InDict]/2; }
       uint32_t n_string_length() const { return total_string_length; }
+
+      void on_error( int errcode, const std::string & err, const unsigned char * start_context, const unsigned char * locn, const unsigned char * end_context )
+      {
+          std::cerr<<"OMG an error ["<<errcode<<"] : "<<err<<std::endl;
+          std::cerr<<"It seems to have happened here..."<<std::endl;
+          const unsigned char * ep = (locn+10<end_context)?locn+10:end_context;
+          const unsigned char * sp = (locn-10>start_context)?locn-10:start_context;
+          std::cerr<<std::string(sp, ep)<<std::endl;
+          while( sp < locn ) { std::cerr<<' '; ++sp; }
+          std::cerr<<"^"<<std::endl;
+      }
 
     protected:
       uint32_t arrays;

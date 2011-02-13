@@ -25,7 +25,7 @@ elif sys.platform=="sunos5":
   env['CXX']='/usr/sfw/bin/g++'
   env.Append( LIBS=['socket','resolv','nsl'])
 
-env.Append( CPPFLAGS=['-g','-Wall'] )
+env.Append( CPPFLAGS=['-g','-Wall','-O2'] )
 
 #A library containing several of the objects just to make linking the tests easier
 

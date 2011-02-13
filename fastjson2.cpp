@@ -38,91 +38,6 @@ namespace fastjson
 
   unsigned char hex_digit[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E','F' };
 
-  size_t bytes_required( const Token * tok )
-  {
-    switch( tok->type )
-    {
-      case Token::ArrayToken:
-        if( tok->data.array.ptr==NULL )
-        {
-          return 2;
-        }
-        else
-        {
-          size_t total = 2; //For the opening and closing [] marks
-          //Loop through the elements and add them in.
-          ArrayEntry * child = tok->data.array.ptr;
-          while(child)
-          {
-            total += bytes_required( &child->tok );
-            if( child->next)
-              total+=1; //For the ,
-            child=child->next;
-          }
-
-          return total;
-        }
-      case Token::DictToken:
-        if( tok->data.dict.ptr==NULL )
-        {
-          return 2;
-        }
-        else
-        {
-          size_t total = 2; // For the {}
-
-          //Loop through the elements and add them in.
-          DictEntry * child = tok->data.dict.ptr;
-          while(child)
-          {
-            total += bytes_required( &child->key_tok );
-            total += 1; // For the :
-            total += bytes_required( &child->value_tok );
-            if( child->next)
-              total +=1 ; // For the ,
-            child=child->next;
-          }
-
-          return total;
-        }
-      case Token::ValueToken:
-        switch( tok->data.value.type_hint)
-        {
-          case ValueType::StringHint:
-            {
-              if (tok->data.value.ptr==NULL)
-              {
-                return 2;
-              }
-              else
-              {
-                //TODO: we need to json escape this string...
-                return 2+tok->data.value.size;
-              }
-            }
-            break;
-          case ValueType::NumberHint:
-            {
-              if (tok->data.value.ptr==NULL)
-              {
-                return 1;
-              }
-              else
-              {
-                return tok->data.value.size;
-              }
-            }
-            break;
-        }
-      case Token::LiteralTrueToken:
-        return 4;
-      case Token::LiteralFalseToken:
-        return 5;
-      case Token::LiteralNullToken:
-        return 4;
-    }
-    return 0;
-  }
 
   struct Writer
   {
@@ -135,7 +50,18 @@ namespace fastjson
     }
   };
 
-  void write_invalid_unicode_marker( Writer * w, bool escape_unicode_errors )
+  struct Counter
+  {
+    uint32_t count;
+    Counter * write( char c )
+    {
+      count++;
+      return this;
+    }
+  };
+
+  template<typename CALLBACK>
+  void process_invalid_unicode_marker( CALLBACK * w, bool escape_unicode_errors )
   {
     if( escape_unicode_errors )
     {
@@ -154,7 +80,8 @@ namespace fastjson
   }
 
 
-  void serialize_inplace( const Token * tok, Writer * w )
+  template<typename CALLBACK>
+  void process_inplace( const Token * tok, CALLBACK * w )
   {
     bool escape_unicode_errors = true;
     bool escape_unicode = true;
@@ -176,7 +103,7 @@ namespace fastjson
           ArrayEntry * child = tok->data.array.ptr;
           while(child)
           {
-            serialize_inplace( &child->tok, w );
+            process_inplace( &child->tok, w );
             if( child->next)
             {
               w->write(',');
@@ -200,9 +127,9 @@ namespace fastjson
           DictEntry * child = tok->data.dict.ptr;
           while(child)
           {
-            serialize_inplace( &child->key_tok, w );
+            process_inplace( &child->key_tok, w );
             w->write(':');
-            serialize_inplace( &child->value_tok, w );
+            process_inplace( &child->value_tok, w );
             if( child->next)
             {
               w->write(',');
@@ -248,13 +175,13 @@ namespace fastjson
                       break;
                     case FJ_UCC: // : Unicode continuation character
                       //SHOULD _NEVER_ GET THIS IN A VALID UTF-8 STREAM
-                      write_invalid_unicode_marker(w, escape_unicode_errors);
+                      process_invalid_unicode_marker(w, escape_unicode_errors);
                       ++start;
                       break;
                     case FJ_UC2: // : Unicode 2 byte start character
                       if( end-start < 1 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -262,7 +189,7 @@ namespace fastjson
                       //Is the second byte a valid continuation character?
                       if( decode_types[ *(start+1) ] != FJ_UCC )
                       {
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -291,7 +218,7 @@ namespace fastjson
                     case FJ_UC3: // : Unicode 2 byte start character
                       if( end-start < 2 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -302,7 +229,7 @@ namespace fastjson
                           decode_types[ *(start+2) ] != FJ_UCC
                         )
                       {
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -333,7 +260,7 @@ namespace fastjson
                     case FJ_UC4: // : Unicode 4 byte start character
                       if( end-start < 3 )
                       { //PUT IN THE INVALID UNICODE CHARACTER
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -345,7 +272,7 @@ namespace fastjson
                           decode_types[ *(start+3) ] != FJ_UCC
                         )
                       {
-                        write_invalid_unicode_marker(w, escape_unicode_errors);
+                        process_invalid_unicode_marker(w, escape_unicode_errors);
                         ++start;
                         break;
                       }
@@ -392,7 +319,7 @@ namespace fastjson
                       start+=1;
                       break;
                     case FJ_ERR: // : Should not occur in a UTF-8 stream
-                      write_invalid_unicode_marker(w, escape_unicode_errors);
+                      process_invalid_unicode_marker(w, escape_unicode_errors);
                       ++start;
                       break;
                   }
@@ -436,9 +363,16 @@ namespace fastjson
   {
     Writer w;
     w.buffer = buffer;
-    serialize_inplace( tok, &w );
+    process_inplace( tok, &w );
     return w.buffer - buffer;
   }
      
+  size_t bytes_required( const Token * tok )
+  {
+    Counter w;
+    w.count = 0;
+    process_inplace( tok, &w );
+    return w.count;
+  }
   
 }

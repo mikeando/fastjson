@@ -7,7 +7,7 @@
 #define C_WHITE    0x40
 #define C_DIGIT(X) (0x80 + 0x20 + (X))
 
-static uint8_t fj_char_traits[128] =
+static const uint8_t fj_char_traits[256] =
 {
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
   C_MISC,     C_WHITE,    C_WHITE,    C_MISC,     C_MISC,     C_WHITE,    C_MISC,     C_MISC,
@@ -26,45 +26,62 @@ static uint8_t fj_char_traits[128] =
   C_MISC,     C_HEX(10),  C_HEX(11),  C_HEX(12),  C_HEX(13),  C_HEX(14),  C_HEX(15),  C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC
 };
 
-bool ishex( unsigned char c )
+static inline bool ishex( unsigned char c )
 {
-  if(c>=128) return false;
   return fj_char_traits[c] & 0x80;
 }
 
-uint8_t hexdigit( unsigned char c )
+static inline uint8_t hexdigit( unsigned char c )
 {
-  if(c>=128) return false;
   return fj_char_traits[c] & 0x0F;
 }
 
-bool isdigit( unsigned char c )
+static inline bool isdigit( unsigned char c )
 {
-  if(c>=128) return false;
   return fj_char_traits[c] & 0x20;
 }
 
-bool iswhite( unsigned char c )
+static inline bool iswhite( unsigned char c )
 {
-  if( c>=128) return false;
   return fj_char_traits[c] & 0x40;
 }
 
 //Moves pointer as far as it can while reading a valid number.
 //If it fails to parse any characters it returns start
-const unsigned char * parse_number( const unsigned char * start, const unsigned char * end )
+template<typename PARSER>
+const unsigned char * parse_number( const unsigned char * start, const unsigned char * end, PARSER * p )
 {
   const unsigned char * cursor = start;
   //Eat the optional sign
-  if( cursor==end ) return start;
+  if( cursor==end ) { p->on_error(1000, "end of input during number",start,cursor,end); return start; }
   if( *cursor=='-' ) { ++cursor; }
 
 
   //Eat the integer mantissa
-  if( cursor==end ) return start;
+  if( cursor==end ) { p->on_error(1000, "end of input during number",start,cursor,end); return start; }
   if( *cursor=='0' ) { ++cursor;}
   else if( isdigit(*cursor) )
   {
@@ -77,6 +94,7 @@ const unsigned char * parse_number( const unsigned char * start, const unsigned 
   else
   {
     //Its not valid ..
+    p->on_error(1001, "invalid number",start,cursor,end);
     return start;
   }
   if( cursor==end ) return cursor;
@@ -143,7 +161,7 @@ namespace fastjson
     uint32_t subelements;
   };
 
-  const unsigned char * eat_whitespace( const unsigned char * start, const unsigned char * end )
+  static inline const unsigned char * eat_whitespace( const unsigned char * start, const unsigned char * end )
   {
     const unsigned char * cursor = start;
     while( cursor!=end && iswhite(*cursor) )
@@ -164,7 +182,11 @@ namespace fastjson
     std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if( cursor==end ) return NULL;
+    if( cursor==end )
+    {
+      callback->on_error(2000, "Expected object, got end of input instead",start,cursor,end);
+      return NULL;
+    }
 
     switch (*cursor)
     {
@@ -181,18 +203,27 @@ namespace fastjson
         state->push_back( ParserState(state::start_string) );
         return cursor + 1;
       case 't':
-        if( end - cursor  < 4 ) return NULL;
-        if( cursor[1]!='r' || cursor[2]!='u' || cursor[3]!='e' ) return NULL;
+        if( end - cursor  < 4 || cursor[1]!='r' || cursor[2]!='u' || cursor[3]!='e' )
+        {
+          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          return NULL;
+        }
         callback->on_true();
         return cursor + 4;
       case 'f':
-        if( end - cursor  < 5 ) return NULL;
-        if( cursor[1]!='a' || cursor[2]!='l' || cursor[3]!='s' || cursor[4]!='e' ) return NULL;
+        if( end - cursor  < 5 || cursor[1]!='a' || cursor[2]!='l' || cursor[3]!='s' || cursor[4]!='e' )
+        {
+          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          return NULL;
+        }
         callback->on_false();
         return cursor + 5;
       case 'n':
-        if( end - cursor  < 4 ) return NULL;
-        if( cursor[1]!='u' || cursor[2]!='l' || cursor[3]!='l' ) return NULL;
+        if( end - cursor  < 4 || cursor[1]!='u' || cursor[2]!='l' || cursor[3]!='l' )
+        {
+          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          return NULL;
+        }
         callback->on_null();
         return cursor + 4;
       default:
@@ -205,6 +236,8 @@ namespace fastjson
         state->push_back( ParserState(state::start_number) );
         return cursor;
     }
+
+    callback->on_error(2002, "Invalid data found", start, cursor, end);
     return NULL;
   }
 
@@ -219,26 +252,30 @@ namespace fastjson
     return parse_start_object(start,end,callback,state);
   }
 
-  const unsigned char * read_unicode_escape( const unsigned char * start, const unsigned char * end, uint32_t * val )
+  template<typename T>
+  const unsigned char * read_unicode_escape( const unsigned char * start, const unsigned char * end, uint32_t * val, T * callback )
   {
      //We need at least 6 characters \uxxxx
-     if( end-start < 6 ) return NULL;
-     if( start[0] != '\\' ) return NULL;
-     if( start[1] != 'u' ) return NULL;
+     if( end-start < 6    ) { callback->on_error(3000,"Insufficient data for unicode escape",start,start,end); return NULL; }
+     if( start[0] != '\\' ) { callback->on_error(3001,"Unicode escape must start \\u",start,start,end);        return NULL; }
+     if( start[1] != 'u'  ) { callback->on_error(3001,"Unicode escape must start \\u",start,start,end);        return NULL; }
      if( ! ( ishex( start[2] ) && ishex( start[3] ) && ishex( start[4] ) && ishex( start[5] ) ) )
+     {
+       callback->on_error(3002,"Nonhex character found in unicode escape",start,start,end);
        return NULL;
+     }
      *val = ( hexdigit(start[2]) << 12) | ( hexdigit(start[3])<<8 ) | hexdigit(start[4])<<4 | hexdigit(start[5] );
     return start+6;
   }
 
   template<typename T>
   const unsigned char * parse_string(
-      const unsigned char * cursor,
+      const unsigned char * start,
       const unsigned char * end,
       T * callback,
       std::vector<ParserState> * state )
   {
-    const unsigned char * newcursor=cursor;
+    const unsigned char * newcursor=start;
     while(newcursor!=end)
     {
       switch(*newcursor)
@@ -251,13 +288,17 @@ namespace fastjson
         case '\\':
           //We've got an escaped character..
           ++newcursor;
-          if(newcursor==end) return NULL;
+          if(newcursor==end)
+          {
+            callback->on_error(3003, "End of input while parsing escaped character", start, newcursor, end);
+            return NULL;
+          }
           //What kind of escape is it?
           switch(*newcursor)
           {
             case 'u': //Unicode escape.
               uint32_t v;
-              newcursor = read_unicode_escape( newcursor-1, end, &v );
+              newcursor = read_unicode_escape( newcursor-1, end, &v, callback );
               if( ! newcursor ) return NULL;
 
               if( v<0x0080 )
@@ -287,7 +328,7 @@ which will be in the range 0xDC00..0xDFFF.
                 if( v>=0xD800 && v<=0xDBFF )
                 {
                   uint32_t nextv;
-                  newcursor = read_unicode_escape( newcursor, end, & nextv );
+                  newcursor = read_unicode_escape( newcursor, end, & nextv, callback );
                   if( ! newcursor ) return NULL;
                   if( nextv>=0xDC00 && nextv<=0xDFFF )
                   {
@@ -302,12 +343,14 @@ which will be in the range 0xDC00..0xDFFF.
                   }
                   else
                   {
+                    callback->on_error(3004, "Invalid second surrogate pair found when decoing unicode escape", start, newcursor, end);
                     return NULL;
                   }
                 }
                 /* We should _never_ get a second code point of a surrogate pair here */
                 else if( v>=0xDC00 && v<=0xDFFF )
                 {
+                  callback->on_error(3005, "Invalid second surrogate pair without first surrogate pair when decoding unicode escape", start, newcursor, end);
                   return NULL;
                 }
                 else
@@ -331,6 +374,7 @@ which will be in the range 0xDC00..0xDFFF.
           ++newcursor;
       }
     }
+    callback->on_error( -1000, "Internal error parsing string - should never get here", start,newcursor,end );
     return NULL;
   }
 
@@ -341,7 +385,7 @@ which will be in the range 0xDC00..0xDFFF.
       T * callback,
       std::vector<ParserState> * state )
   {
-    const unsigned char * cursor = ::parse_number( start, end );
+    const unsigned char * cursor = ::parse_number( start, end, callback );
     if(cursor==start) return NULL;
 
     callback->end_number(start,cursor);
@@ -359,7 +403,11 @@ which will be in the range 0xDC00..0xDFFF.
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(4001,"End of input while parsing start of array",start,cursor,end);
+      return NULL;
+    }
 
     //Have we reached the end of the array?
     if( *cursor==']' )
@@ -385,7 +433,11 @@ which will be in the range 0xDC00..0xDFFF.
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(4002,"End of input while parsing array",start,cursor,end);
+      return NULL;
+    }
 
     //Have we reached the end of the array?
     if( *cursor==']' )
@@ -407,6 +459,7 @@ which will be in the range 0xDC00..0xDFFF.
     }
 
     // We got something unexpected..
+    callback->on_error(4003, "Unexpected character while parsing array", start, cursor, end);
     return NULL;
   }
 
@@ -419,7 +472,11 @@ which will be in the range 0xDC00..0xDFFF.
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(5001, "End of input while parsing dict start", start, cursor, end);
+      return NULL;
+    }
 
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
@@ -440,6 +497,7 @@ which will be in the range 0xDC00..0xDFFF.
     }
 
     //Otherwise something bad is happenening
+    callback->on_error(5002, "Unexpected character while parsing dict start",start,cursor,end);
     return NULL;
   }
 
@@ -451,8 +509,16 @@ which will be in the range 0xDC00..0xDFFF.
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return NULL;
-    if(*cursor!=':') return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(5003, "Unexpected end of input while lookig for dict seperator",start,cursor,end);
+      return NULL;
+    }
+    if(*cursor!=':')
+    {
+      callback->on_error(5004, "Unexpected character while looking for dict seperator",start,cursor,end);
+      return NULL;
+    }
     ++cursor;
 
     //Now we should get an object...
@@ -469,7 +535,11 @@ which will be in the range 0xDC00..0xDFFF.
       std::vector<ParserState> * state )
   {
     const unsigned char * cursor = eat_whitespace(start,end);
-    if(cursor==end) return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(5005, "Unexpected end of input while reading dict",start,cursor,end);
+      return NULL;
+    }
 
     //Have we reached the end of the dictionary?
     if( *cursor=='}' )
@@ -480,12 +550,25 @@ which will be in the range 0xDC00..0xDFFF.
     }
 
     //Nope.. we'd better be getting a comma then a string then
-    if( *cursor!=',') return NULL;
+    if( *cursor!=',')
+    {
+      callback->on_error(5006, "Unexpected character when looking for comma in dict",start,cursor,end);
+      return NULL;
+    }
     ++cursor;
     cursor = eat_whitespace(cursor,end);
 
-    if(cursor==end) return NULL;
-    if( *cursor!='"' ) return NULL;
+    if(cursor==end)
+    {
+      callback->on_error(5007, "Unexpected end of input when looking for dict key",start,cursor,end);
+      return NULL;
+    }
+
+    if( *cursor!='"' )
+    {
+      callback->on_error(5008, "Unexpected character when looking for dict key",start,cursor,end);
+      return NULL;
+    }
 
     callback->start_string();
     //Transition the state for when we complete the sub-state, then move into a sub state.
@@ -506,6 +589,8 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = start;
     while( cursor != end )
     {
+      cursor = eat_whitespace(cursor, end);
+      if(cursor==end) break;
       switch( state_stack.back().state )
       {
         case state::start_root:
@@ -533,13 +618,19 @@ which will be in the range 0xDC00..0xDFFF.
           cursor =  parse_dict_continue( cursor, end, callback, &state_stack );
           break;
         default:
+          callback->on_error(-1002,"Inavlid state encountered", start, cursor,end);
           return false;
       }
 
       if(cursor==NULL) return false;
     }
 
-    return state_stack.back().state == state::start_root;
+    if(state_stack.back().state != state::start_root)
+    {
+      callback->on_error(6001, "Input ended while in non-root state",start,end,end);
+      return false;
+    }
+    return true;
   }
 
   bool count_elements( const std::string & json_str, JsonElementCount * count )
@@ -729,6 +820,11 @@ which will be in the range 0xDC00..0xDFFF.
       Token * get_current_token()
       {
         return cur_tok;
+      }
+
+      void on_error( int errcode, const std::string & mesg, const unsigned char * start_context, const unsigned char * locn, const unsigned char * end_context )
+      {
+        std::cerr<<"OMG error ["<<errcode<<"] "<<mesg<<std::endl;
       }
 
 
