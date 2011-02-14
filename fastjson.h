@@ -22,6 +22,7 @@ namespace fastjson
         strings(0),
         total_string_length(0)
     {
+      context.reserve(5);
       context.push_back(Root);
       memset( counts, 0, sizeof(counts) );
     }

@@ -658,7 +658,11 @@ which will be in the range 0xDC00..0xDFFF.
 
   struct XParser
   {
-      XParser() { context.push_back( Context::root() ); }
+      XParser()
+      {
+        context.reserve(5);
+        context.push_back( Context::root() );
+      }
 
       Token * add_child(Token::Type type)
       {
