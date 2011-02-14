@@ -13,7 +13,7 @@ namespace fastjson
   FJ_ERR, // : Has nice (required) escape
   };
 
- DecodeTypes decode_types[256]
+ static const DecodeTypes decode_types[256]
         = { /* 0       1       2       3         4       5       6      7          8       9       A       B         C       D       E       F */
  /* 0 */    FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,   FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,   FJ_ESC, FJ_ESC, FJ_ESC, FJ_RUC,   FJ_ESC, FJ_ESC, FJ_RUC, FJ_RUC,
  /* 1 */    FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,   FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,   FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,   FJ_RUC, FJ_RUC, FJ_RUC, FJ_RUC,
