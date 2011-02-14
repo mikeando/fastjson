@@ -589,8 +589,11 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = start;
     while( cursor != end )
     {
-      cursor = eat_whitespace(cursor, end);
-      if(cursor==end) break;
+      if( state_stack.back().state != state::start_string )
+      {
+        cursor = eat_whitespace(cursor, end);
+        if(cursor==end) break;
+      }
       switch( state_stack.back().state )
       {
         case state::start_root:
