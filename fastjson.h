@@ -6,7 +6,7 @@
 
 #include <vector>
 
-#include "fastjson2.h"
+#include "fastjson/core.h"
 
 //TODO: Remove this when we have better error handling.
 #include <iostream>
