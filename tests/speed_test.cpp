@@ -98,10 +98,12 @@ const char * json =
 
 int main()
 {
+  uint32_t l = strlen(json);
+
   for(unsigned int i=0; i<100000; ++i)
   {
   fastjson::JsonElementCount count;
-  fastjson::count_elements( json, &count );
+  fastjson::count_elements( reinterpret_cast<const unsigned char*>( json ), reinterpret_cast<const unsigned char*>(json)+l, &count );
 
   //Allocate enoiugh space to parse the json properly
   unsigned char * strings = new unsigned char[count.n_string_length()];
@@ -113,7 +115,7 @@ int main()
   doc.array_store  = arrays;
   doc.dict_store   = dicts;
 
-  bool ok = fastjson::parse_doc( json, &doc );
+  bool ok = fastjson::parse_doc( reinterpret_cast<const unsigned char *>(json), reinterpret_cast<const unsigned char*>(json)+l, &doc  );
 
   std::string s = fastjson::as_string( & doc.root );
 
