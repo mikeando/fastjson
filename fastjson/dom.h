@@ -98,73 +98,8 @@ namespace fastjson { namespace dom {
       public:
         Chunk() : arrays_(), dicts_(), strings_() {}
 
-        Token create_value_token_from_string( const std::string & v )
-        {
-          Token tok;
-          tok.type=Token::ValueToken;
-          tok.data.value.type_hint=ValueType::StringHint;
-          unsigned int space_required = v.size();
-          tok.data.value.size = space_required;
-          tok.data.value.ptr = create_raw_buffer( v.c_str(), space_required );
-          return tok;
-        }
 
-        Token create_value_token_from_int( int v )
-        {
-          Token tok;
-          tok.type=Token::ValueToken;
-          tok.data.value.type_hint=ValueType::NumberHint;
-          std::stringstream ss;
-          ss<<v;
-          std::string s = ss.str();
-          unsigned int space_required = s.size();
-          tok.data.value.size = space_required;
-          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
-          return tok;
-        }
-
-        Token create_value_token_from_float( float v )
-        {
-          Token tok;
-          tok.type=Token::ValueToken;
-          tok.data.value.type_hint=ValueType::NumberHint;
-          std::stringstream ss;
-          ss<<v;
-          std::string s = ss.str();
-          unsigned int space_required = s.size();
-          tok.data.value.size = space_required;
-          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
-          return tok;
-        }
-
-        Token create_value_token_from_double( double v )
-        {
-          Token tok;
-          tok.type=Token::ValueToken;
-          tok.data.value.type_hint=ValueType::NumberHint;
-          std::stringstream ss;
-          ss<<v;
-          std::string s = ss.str();
-          unsigned int space_required = s.size();
-          tok.data.value.size = space_required;
-          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
-          return tok;
-        }
-
-        Token create_value_token_from_uint64_t( uint64_t v )
-        {
-          Token tok;
-          tok.type=Token::ValueToken;
-          tok.data.value.type_hint=ValueType::NumberHint;
-          std::stringstream ss;
-          ss<<v;
-          std::string s = ss.str();
-          unsigned int space_required = s.size();
-          tok.data.value.size = space_required;
-          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
-          return tok;
-        }
-
+        //TODO: Shift this into an object containing the StringBuffers?
         char * create_raw_buffer( const char * b, unsigned int space_required )
         {
           unsigned int i=0;
@@ -190,6 +125,78 @@ namespace fastjson { namespace dom {
         std::vector<StringBuffer>  strings_;
     };
 
+    class Value
+    {
+      public:
+        static Value as_value( Token * tok, Chunk * chunk )
+        {
+          Value retval;
+          assert(tok->type==Token::ValueToken);
+
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+        }
+
+        static Value create_value( Token * tok, Chunk * chunk )
+        {
+          //Assumes that whatever was there has been cleaned up
+          Value retval;
+          tok->type = Token::ValueToken;
+          tok->data.dict.ptr = NULL;
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+          return retval;
+        }
+
+
+        template<typename T, typename W>
+        bool set_numeric( const W & value )
+        {
+          tok_->data.value.type_hint = ValueType::NumberHint;
+          std::stringstream ss;
+          ss<<value;
+          std::string s = ss.str();
+          //Now allocate enough space for it.
+          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->data.value.size = s.size();
+          return true;
+        }
+
+        template<typename T, typename W>
+        bool set_string( const W & value )
+        {
+          tok_->data.value.type_hint = ValueType::StringHint;
+          std::stringstream ss;
+          ss<<value;
+          std::string s = ss.str();
+          //Now allocate enough space for it.
+          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->data.value.size = s.size();
+          return true;
+        }
+
+        void set_raw_string( const std::string & s )
+        {
+          tok_->data.value.type_hint = ValueType::StringHint;
+          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->data.value.size = s.size();
+        }
+
+        const Token * token() const
+        {
+          return tok_;
+        }
+
+        protected:
+        Value() : tok_(NULL), chunk_(NULL)
+        {
+        }
+
+        Token * tok_;
+        Chunk  * chunk_;
+    };
+
+
     template<typename T>
     struct json_helper;
 
@@ -198,50 +205,28 @@ namespace fastjson { namespace dom {
     {
       static bool build( Token * tok, Chunk * chunk, const std::string & value )
       {
-        *tok = chunk->create_value_token_from_string(value);
+        Value v = Value::create_value(tok,chunk);
+        v.set_raw_string( value );
         return true; 
       }
     };
 
-    template<>
-    struct json_helper<int>
+
+    template<typename T>
+    struct numeric_value_json_helper
     {
-      static bool build( Token * tok, Chunk * chunk, int value )
+      static bool build( Token * tok, Chunk * chunk, T value )
       {
-        *tok = chunk->create_value_token_from_int(value);
+        Value v = Value::create_value(tok,chunk);
+        v.set_numeric<T>(value);
         return true; 
       }
     };
 
-    template<>
-    struct json_helper<uint64_t>
-    {
-      static bool build( Token * tok, Chunk * chunk, uint64_t value )
-      {
-        *tok = chunk->create_value_token_from_uint64_t(value);
-        return true; 
-      }
-    };
-
-    template<>
-    struct json_helper<float>
-    {
-      static bool build( Token * tok, Chunk * chunk, float value )
-      {
-        *tok = chunk->create_value_token_from_float(value);
-        return true; 
-      }
-    };
-
-    template<>
-    struct json_helper<double>
-    {
-      static bool build( Token * tok, Chunk * chunk, double value )
-      {
-        *tok = chunk->create_value_token_from_double(value);
-        return true; 
-      }
-    };
+    template<> struct json_helper<int>      : public numeric_value_json_helper<int>      {};
+    template<> struct json_helper<uint64_t> : public numeric_value_json_helper<uint64_t> {};
+    template<> struct json_helper<float>    : public numeric_value_json_helper<float>    {};
+    template<> struct json_helper<double>   : public numeric_value_json_helper<double>   {};
 
     template<>
     struct json_helper<bool>
@@ -299,7 +284,8 @@ namespace fastjson { namespace dom {
         {
           DictEntry * dv = chunk_->dicts().create_value();
           dv->next = NULL;
-          dv->key_tok = chunk_->create_value_token_from_string(key);
+          Value key_v = Value::create_value( &dv->key_tok, chunk_ );
+          key_v.set_raw_string(key);
           if( ! json_helper<T>::build( &dv->value_tok, chunk_, value ) )
           {
             return false;
