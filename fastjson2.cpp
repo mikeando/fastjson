@@ -1,4 +1,4 @@
-#include "fastjson2.h"
+#include "fastjson/core.h"
 
 namespace fastjson
 {

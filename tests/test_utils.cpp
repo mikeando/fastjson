@@ -18,11 +18,11 @@ namespace fastjson { namespace dom {
 template<>
 struct json_helper<CustomObject>
 {
-  static bool build( Token * tok, Document * doc, const CustomObject & obj )
+  static bool build( Token * tok, Chunk * chunk, const CustomObject & obj )
   {
     tok->type=Token::DictToken;
     tok->data.dict.ptr=NULL;
-    Dictionary d(doc,tok);
+    Dictionary d = Dictionary::create_dict(tok,chunk);
     d.add<int>( "foo", obj.i_);
     d.add<std::string>( "message", obj.m_);
     d.add<int>( "count", obj.k_);
@@ -37,174 +37,121 @@ class TestFixture
 
     void test_document_free_list_counts()
     {
-      fastjson::dom::Document doc;
-      saru_assert_equal( 0u, doc.n_available_array() );
-      doc.create_and_add_array_page( 10 ); //This should give us 10 more array entries
-      saru_assert_equal( 10u, doc.n_available_array() );
-      doc.create_and_add_array_page( 10 ); //This should give us 10 more array entries
-      saru_assert_equal( 20u, doc.n_available_array() );
+      fastjson::dom::Chunk chunk;
+      saru_assert_equal( 0u, chunk.arrays().n_available() );
+      chunk.arrays().create_and_add_page( 10 ); //This should give us 10 more array entries
+      saru_assert_equal( 10u, chunk.arrays().n_available() );
+      chunk.arrays().create_and_add_page( 10 ); //This should give us 10 more array entries
+      saru_assert_equal( 20u, chunk.arrays().n_available() );
     }
 
     void test_document_free_list_basic()
     {
-      fastjson::dom::Document doc;
-      saru_assert_equal( 0u, doc.n_available_array() );
-      doc.create_and_add_array_page( 10 ); //This should give us 10 more array entries
-      saru_assert_equal( 10u, doc.n_available_array() );
-      fastjson::dom::PageEntry<fastjson::ArrayEntry> * a = doc.create_array_entry();
+      fastjson::dom::Chunk chunk;
+      saru_assert_equal( 0u, chunk.arrays().n_available() );
+      chunk.arrays().create_and_add_page( 10 ); //This should give us 10 more array entries
+      saru_assert_equal( 10u, chunk.arrays().n_available() );
+      fastjson::ArrayEntry * a = chunk.arrays().create_value();
       saru_assert( a );
-      saru_assert_equal( 9u, doc.n_available_array() );
-      doc.destroy_array( a );
-      saru_assert_equal( 10u, doc.n_available_array() );
+      saru_assert_equal( 9u, chunk.arrays().n_available() );
+      chunk.arrays().destroy( a );
+      saru_assert_equal( 10u, chunk.arrays().n_available() );
     }
 
 
     void test_empty_dict()
     {
       // First create a dictionary
-      fastjson::dom::Document doc;
-      fastjson::dom::Dictionary * dict = doc.create_dictionary();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
+      fastjson::dom::Dictionary dict = fastjson::dom::Dictionary::create_dict(&tok,&chunk);
   
       // Now lets get it back as a string...
-      saru_assert_equal("{}",fastjson::as_string( dict->token() ) );
+      saru_assert_equal("{}",fastjson::as_string( dict.token() ) );
     }
 
     void test_dict_add_kv()
     {
       // First create a dictionary
-      fastjson::dom::Document doc;
-      fastjson::dom::Dictionary * dict = doc.create_dictionary();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
+      fastjson::dom::Dictionary dict = fastjson::dom::Dictionary::create_dict(&tok,&chunk);
   
       // Then add a simple kv pair
-      dict->add<std::string>("key","value");
+      dict.add<std::string>("key","value");
 
       // Now lets get it back as a string...
-      saru_assert_equal("{\"key\":\"value\"}",fastjson::as_string( dict->token() ) );
+      saru_assert_equal("{\"key\":\"value\"}",fastjson::as_string( dict.token() ) );
     }
 
     void test_empty_array()
     {
       // First create an array
-      fastjson::dom::Document doc;
-      fastjson::dom::Array * array = doc.create_free_array();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
+      fastjson::dom::Array array = fastjson::dom::Array::create_array(&tok,&chunk);
   
       // Now lets get it back as a string...
-      saru_assert_equal("[]",fastjson::as_string( array->token() ) );
+      saru_assert_equal("[]",fastjson::as_string( array.token() ) );
     }
 
     void test_simple_array()
     {
       // First create an array
-      fastjson::dom::Document doc;
-      fastjson::dom::Array * array = doc.create_free_array();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
+      fastjson::dom::Array array = fastjson::dom::Array::create_array(&tok,&chunk);
   
-      array->add<std::string>("hello");
-      array->add<std::string>("world");
+      array.add<std::string>("hello");
+      array.add<std::string>("world");
   
       // Now lets get it back as a string...
-      saru_assert_equal("[\"hello\",\"world\"]",fastjson::as_string( array->token() ) );
-    }
-
-    void test_empty_dict_json_node()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::dict( &doc );
-      saru_assert_equal("{}", n.as_string() );
-    }
-
-    void test_simple_dict_json_node()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::dict( &doc );
-      n.add<std::string>("h","Hello");
-      n.add<std::string>("w","World");
-      saru_assert_equal("{\"h\":\"Hello\",\"w\":\"World\"}", n.as_string() );
-    }
-
-    void test_empty_array_json_node()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::array( &doc );
-      saru_assert_equal("[]", n.as_string() );
-    }
-
-    void test_simple_array_json_node()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::array( &doc );
-      n.add<std::string>("Hello");
-      n.add<std::string>("World");
-      saru_assert_equal("[\"Hello\",\"World\"]", n.as_string() );
-    }
-
-    void test_simple_array_json_node2()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::array( &doc );
-      bool ok = n.add<std::string>("Hello");
-      saru_assert(ok);
-      ok = n.add<int>(-11);
-      saru_assert(ok);
-      ok = n.add<float>(2.5);
-      saru_assert(ok);
-
-      saru_assert_equal("[\"Hello\",-11,2.5]", n.as_string() );
-    }
-
-    void test_nested_array_json()
-    {
-      fastjson::dom::Document doc;
-      fastjson::dom::JsonNode n = fastjson::dom::JsonNode::array( &doc );
-      fastjson::dom::JsonNode sn = fastjson::dom::JsonNode::array( &doc );
-      bool ok = n.add<fastjson::dom::JsonNode>( sn );
-
-      saru_assert(ok);
-      saru_assert_equal("[[]]", n.as_string() );
+      saru_assert_equal("[\"hello\",\"world\"]",fastjson::as_string( array.token() ) );
     }
 
     void test_convert_from_vector_of_int()
     {
-      fastjson::dom::Document doc;
-      fastjson::Token * tok = doc.create_free_token();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
       std::vector<int> rv;
-      bool ok = fastjson::dom::json_helper< std::vector<int> >::build( tok, &doc, rv );
+      bool ok = fastjson::dom::json_helper< std::vector<int> >::build( &tok, &chunk, rv );
       saru_assert(ok);
 
-      saru_assert_equal("[]", fastjson::as_string(tok) );
+      saru_assert_equal("[]", fastjson::as_string(&tok) );
 
       rv.push_back(1); 
       rv.push_back(5); 
       rv.push_back(9); 
-      fastjson::dom::json_helper< std::vector<int> >::build( tok, &doc, rv );
-      saru_assert_equal("[1,5,9]", fastjson::as_string(tok) );
+      fastjson::dom::json_helper< std::vector<int> >::build( &tok, &chunk, rv );
+      saru_assert_equal("[1,5,9]", fastjson::as_string(&tok) );
     }
 
     void test_convert_from_vector_of_string()
     {
-      fastjson::dom::Document doc;
-      fastjson::Token * tok = doc.create_free_token();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token  tok;
       std::vector<std::string> rv;
-      bool ok = fastjson::dom::json_helper< std::vector<std::string> >::build( tok, &doc, rv );
+      bool ok = fastjson::dom::json_helper< std::vector<std::string> >::build( &tok, &chunk, rv );
       saru_assert(ok);
 
-      saru_assert_equal("[]", fastjson::as_string(tok) );
+      saru_assert_equal("[]", fastjson::as_string(&tok) );
 
       rv.push_back("hello"); 
       rv.push_back("funky"); 
       rv.push_back("chicken"); 
-      fastjson::dom::json_helper< std::vector<std::string> >::build( tok, &doc, rv );
-      saru_assert_equal("[\"hello\",\"funky\",\"chicken\"]", fastjson::as_string(tok) );
+      fastjson::dom::json_helper< std::vector<std::string> >::build( &tok, &chunk, rv );
+      saru_assert_equal("[\"hello\",\"funky\",\"chicken\"]", fastjson::as_string(&tok) );
     }
 
 
     void test_custom_object()
     {
-      fastjson::dom::Document doc;
-      fastjson::Token * tok = doc.create_free_token();
+      fastjson::dom::Chunk chunk;
+      fastjson::Token tok;
       CustomObject obj(1,"hello",5);
-      bool ok= fastjson::dom::json_helper< CustomObject >::build( tok, &doc, obj );
+      bool ok= fastjson::dom::json_helper< CustomObject >::build( &tok, &chunk, obj );
       saru_assert( ok );
-      saru_assert_equal("{\"foo\":1,\"message\":\"hello\",\"count\":5}", fastjson::as_string(tok) );
+      saru_assert_equal("{\"foo\":1,\"message\":\"hello\",\"count\":5}", fastjson::as_string(&tok) );
     }
 
 };
@@ -219,13 +166,6 @@ int main()
   SARU_TEST( TestFixture::test_empty_array, logger);
   SARU_TEST( TestFixture::test_simple_array, logger);
 
-
-  SARU_TEST( TestFixture::test_empty_dict_json_node, logger);
-  SARU_TEST( TestFixture::test_simple_dict_json_node, logger);
-  SARU_TEST( TestFixture::test_empty_array_json_node, logger);
-  SARU_TEST( TestFixture::test_simple_array_json_node, logger);
-  SARU_TEST( TestFixture::test_simple_array_json_node2, logger);
-  SARU_TEST( TestFixture::test_nested_array_json, logger);
   SARU_TEST( TestFixture::test_convert_from_vector_of_int, logger);
   SARU_TEST( TestFixture::test_convert_from_vector_of_string, logger);
   SARU_TEST( TestFixture::test_custom_object, logger);

@@ -2,7 +2,7 @@
 // SARU : CxxLibs -L.. -lfastjson
 
 #include "saru_cxx.h"
-#include "fastjson2.h"
+#include "fastjson/core.h"
 
 
 class TestFixture

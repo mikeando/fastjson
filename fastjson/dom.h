@@ -3,19 +3,15 @@
 
 #include "fastjson/core.h"
 
+//TODO: Ugly that we need this.. can we remove it later?
+#include <vector>
+#include <sstream>
+
 namespace fastjson { namespace dom {
 
-    template<typename DATA>
-    class PageEntry
-    {
-      public:
-        union 
-        {
-          PageEntry<DATA> * free_ptr;
-          DATA d;
-        } d;
-    };
 
+    //Requires the DATA type to have a next pointer to DATA
+    //We hijack that pointer for use in the free list.
     template<typename DATA>
     class Pager
     {
@@ -28,17 +24,17 @@ namespace fastjson { namespace dom {
 
         void create_and_add_page(uint32_t n)
         {
-          PageEntry<DATA> * new_page = new PageEntry<DATA>[n];
+          DATA * new_page = new DATA[n];
           for(unsigned int i=0; i<n; ++i)
           {
-            new_page[i].d.free_ptr = free_ptr;
+            new_page[i].next = free_ptr;
             free_ptr = new_page + i;
           }
           data.push_back(new_page);
           available_count_+=n;
         }
 
-        PageEntry<DATA> * create_value()
+        DATA * create_value()
         {
           if(available_count_==0)
           {
@@ -47,21 +43,22 @@ namespace fastjson { namespace dom {
           }
 
           available_count_--;
-          PageEntry<DATA> * value = free_ptr;
-          free_ptr = value->d.free_ptr;
+          DATA * value = free_ptr;
+          free_ptr = value->next;
+          value->next = NULL;
           return value;
         }
 
-        void destroy( PageEntry<DATA> * a )
+        void destroy( DATA * a )
         {
           available_count_++;
-          a->d.free_ptr = free_ptr;
+          a->next = free_ptr;
           free_ptr = a;
         }
 
       protected:
-        PageEntry<DATA> * free_ptr;
-        std::vector< PageEntry<DATA>* > data;
+        DATA * free_ptr;
+        std::vector< DATA* > data;
         uint32_t available_count_;
     };
 
@@ -96,42 +93,10 @@ namespace fastjson { namespace dom {
     // The idea behind a document is that it can maintain free lists of the unused elements.
     // It can allocate more memory as required, 
     // It can be merged into another document (merging the free lists correctly).
-    class Document
+    class Chunk
     {
       public:
-        Document() : array_pager() {}
-
-        uint32_t n_available_array() const { return array_pager.n_available(); }
-        void create_and_add_array_page(uint32_t n)
-        {
-          return array_pager.create_and_add_page(n);
-        }
-
-        PageEntry<ArrayEntry> * create_array_entry()
-        {
-          return array_pager.create_value();
-        }
-
-        void destroy_array( PageEntry<ArrayEntry> * a )
-        {
-          array_pager.destroy( a );
-        }
-
-        uint32_t n_available_dict() const { return dict_pager.n_available(); }
-        void create_and_add_dict_page(uint32_t n)
-        {
-          return dict_pager.create_and_add_page(n);
-        }
-
-        PageEntry<DictEntry> * create_dict_entry()
-        {
-          return dict_pager.create_value();
-        }
-
-        void destroy_dict( PageEntry<DictEntry> * a )
-        {
-          dict_pager.destroy( a );
-        }
+        Chunk() : arrays_(), dicts_(), strings_() {}
 
         Token create_value_token_from_string( const std::string & v )
         {
@@ -140,24 +105,7 @@ namespace fastjson { namespace dom {
           tok.data.value.type_hint=ValueType::StringHint;
           unsigned int space_required = v.size();
           tok.data.value.size = space_required;
-          {
-            unsigned int i=0;
-            for(i=0; i<strings.size(); ++i)
-            {
-              if ( strings[i].available() >= space_required )
-              {
-                tok.data.value.ptr = strings[i].write( v.c_str(), space_required );
-                break;
-              }
-            }
-            if( i==strings.size() )
-            {
-              //Should use a minimum for this so that we get less fragmentation?
-              strings.push_back( StringBuffer( space_required ) );
-            }
-          }
-          tok.data.value.ptr = strings.back().write( v.c_str(), space_required );
-
+          tok.data.value.ptr = create_raw_buffer( v.c_str(), space_required );
           return tok;
         }
 
@@ -171,24 +119,7 @@ namespace fastjson { namespace dom {
           std::string s = ss.str();
           unsigned int space_required = s.size();
           tok.data.value.size = space_required;
-          {
-            unsigned int i=0;
-            for(i=0; i<strings.size(); ++i)
-            {
-              if ( strings[i].available() >= space_required )
-              {
-                tok.data.value.ptr = strings[i].write( s.c_str(), space_required );
-                break;
-              }
-            }
-            if( i==strings.size() )
-            {
-              //Should use a minimum for this so that we get less fragmentation?
-              strings.push_back( StringBuffer( space_required ) );
-              tok.data.value.ptr = strings.back().write( s.c_str(), space_required );
-            }
-          }
-
+          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
           return tok;
         }
 
@@ -202,37 +133,61 @@ namespace fastjson { namespace dom {
           std::string s = ss.str();
           unsigned int space_required = s.size();
           tok.data.value.size = space_required;
-          {
-            unsigned int i=0;
-            for(i=0; i<strings.size(); ++i)
-            {
-              if ( strings[i].available() >= space_required )
-              {
-                tok.data.value.ptr = strings[i].write( s.c_str(), space_required );
-                break;
-              }
-            }
-            if( i==strings.size() )
-            {
-              //Should use a minimum for this so that we get less fragmentation?
-              strings.push_back( StringBuffer( space_required ) );
-              tok.data.value.ptr = strings.back().write( s.c_str(), space_required );
-            }
-          }
-
+          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
           return tok;
         }
 
-        Dictionary * create_dictionary();
-        Array * create_free_array();
-        Token * create_free_token();
+        Token create_value_token_from_double( double v )
+        {
+          Token tok;
+          tok.type=Token::ValueToken;
+          tok.data.value.type_hint=ValueType::NumberHint;
+          std::stringstream ss;
+          ss<<v;
+          std::string s = ss.str();
+          unsigned int space_required = s.size();
+          tok.data.value.size = space_required;
+          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
+          return tok;
+        }
 
-        Token root;
+        Token create_value_token_from_uint64_t( uint64_t v )
+        {
+          Token tok;
+          tok.type=Token::ValueToken;
+          tok.data.value.type_hint=ValueType::NumberHint;
+          std::stringstream ss;
+          ss<<v;
+          std::string s = ss.str();
+          unsigned int space_required = s.size();
+          tok.data.value.size = space_required;
+          tok.data.value.ptr = create_raw_buffer( s.c_str(), space_required );
+          return tok;
+        }
+
+        char * create_raw_buffer( const char * b, unsigned int space_required )
+        {
+          unsigned int i=0;
+          for(i=0; i<strings_.size(); ++i)
+          {
+            if ( strings_[i].available() >= space_required )
+            {
+              return strings_[i].write( b, space_required );
+            }
+          }
+          //Should use a minimum for this so that we get less fragmentation?
+          strings_.push_back( StringBuffer( space_required ) );
+          return strings_.back().write( b, space_required );
+        }
+
+        Pager<ArrayEntry>& arrays() { return arrays_; }
+        Pager<DictEntry>& dicts() { return dicts_; }
+        std::vector<StringBuffer>& strings() { return strings_; }
+
       protected:
-        Pager<Token>      free_tokens;
-        Pager<ArrayEntry> array_pager;
-        Pager<DictEntry>  dict_pager;
-        std::vector<StringBuffer>  strings;
+        Pager<ArrayEntry> arrays_;
+        Pager<DictEntry>  dicts_;
+        std::vector<StringBuffer>  strings_;
     };
 
     template<typename T>
@@ -241,9 +196,9 @@ namespace fastjson { namespace dom {
     template<>
     struct json_helper<std::string>
     {
-      static bool build( Token * tok, Document * doc, const std::string & value )
+      static bool build( Token * tok, Chunk * chunk, const std::string & value )
       {
-        *tok = doc->create_value_token_from_string(value);
+        *tok = chunk->create_value_token_from_string(value);
         return true; 
       }
     };
@@ -251,9 +206,19 @@ namespace fastjson { namespace dom {
     template<>
     struct json_helper<int>
     {
-      static bool build( Token * tok, Document * doc, int value )
+      static bool build( Token * tok, Chunk * chunk, int value )
       {
-        *tok = doc->create_value_token_from_int(value);
+        *tok = chunk->create_value_token_from_int(value);
+        return true; 
+      }
+    };
+
+    template<>
+    struct json_helper<uint64_t>
+    {
+      static bool build( Token * tok, Chunk * chunk, uint64_t value )
+      {
+        *tok = chunk->create_value_token_from_uint64_t(value);
         return true; 
       }
     };
@@ -261,9 +226,36 @@ namespace fastjson { namespace dom {
     template<>
     struct json_helper<float>
     {
-      static bool build( Token * tok, Document * doc, float value )
+      static bool build( Token * tok, Chunk * chunk, float value )
       {
-        *tok = doc->create_value_token_from_float(value);
+        *tok = chunk->create_value_token_from_float(value);
+        return true; 
+      }
+    };
+
+    template<>
+    struct json_helper<double>
+    {
+      static bool build( Token * tok, Chunk * chunk, double value )
+      {
+        *tok = chunk->create_value_token_from_double(value);
+        return true; 
+      }
+    };
+
+    template<>
+    struct json_helper<bool>
+    {
+      static bool build( Token * tok, Chunk * chunk, bool value )
+      {
+        if(value)
+        {
+          tok->type=Token::LiteralTrueToken;
+        }
+        else
+        {
+          tok->type=Token::LiteralFalseToken;
+        }
         return true; 
       }
     };
@@ -271,82 +263,131 @@ namespace fastjson { namespace dom {
     class Dictionary
     {
       public:
-        Dictionary(Document * doc, Token * tok ) : tok_(tok), doc_(doc), end_(NULL)
+        static Dictionary as_dict( Token * tok, Chunk * chunk )
         {
+          Dictionary retval;
+          assert(tok->type==Token::DictToken);
+          DictEntry * d = tok->data.dict.ptr;
+          DictEntry * end = NULL;
+          //Get the real end...
+          while(d)
+          {
+            end = d;
+            d = d->next;
+          }
+
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+          retval.end_   = end;
         }
+
+        static Dictionary create_dict( Token * tok, Chunk * chunk )
+        {
+          //Assumes that whatever was there has been cleaned up
+          Dictionary retval;
+          tok->type = Token::DictToken;
+          tok->data.dict.ptr = NULL;
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+          retval.end_   = NULL;
+          return retval;
+        }
+
 
         template<typename T, typename W>
         bool add( const std::string & key, const W & value )
         {
-          PageEntry<DictEntry> * dv = doc_->create_dict_entry();
-          dv->d.d.next = NULL;
-          dv->d.d.key_tok = doc_->create_value_token_from_string(key);
-          if( ! json_helper<T>::build( &dv->d.d.value_tok, doc_, value ) )
+          DictEntry * dv = chunk_->dicts().create_value();
+          dv->next = NULL;
+          dv->key_tok = chunk_->create_value_token_from_string(key);
+          if( ! json_helper<T>::build( &dv->value_tok, chunk_, value ) )
           {
             return false;
           }
 
           if( end_ )
           {
-            end_->d.d.next = &(dv->d.d);
+            end_->next = dv;
           }
           else
           {
-            tok_->data.dict.ptr = &(dv->d.d);
+            tok_->data.dict.ptr = dv;
           }
           end_ = dv;
           return true;
         }
 
-        const fastjson::Token * token() const
+        const Token * token() const
         {
           return tok_;
         }
 
-        fastjson::Token * tok_;
-        Document * doc_;
-        PageEntry<DictEntry> * end_;
-    };
+        protected:
+        Dictionary() : tok_(NULL), chunk_(NULL), end_(NULL)
+        {
+        }
 
-    Dictionary * Document::create_dictionary()
-    {
-      PageEntry<Token> * tok = free_tokens.create_value();
-      tok->d.d.type = Token::DictToken;
-      tok->d.d.data.dict.ptr = NULL;
-      return new Dictionary( this, &tok->d.d );
-    }
-  
+        Token * tok_;
+        Chunk  * chunk_;
+        DictEntry * end_;
+    };
 
 
 
     class Array
     {
       public:
-        Array(Document * doc, Token * tok ) : tok_(tok), doc_(doc), end_(NULL)
+        static Array as_array( Token * tok, Chunk * chunk )
         {
+          Array retval;
+          assert(tok->type==Token::ArrayToken);
+          ArrayEntry * a = tok->data.array.ptr;
+          ArrayEntry * end = NULL;
+          //Get the real end...
+          while(a)
+          {
+            end = a;
+            a = a->next;
+          }
+
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+          retval.end_   = end;
+        }
+
+        static Array create_array( Token * tok, Chunk * chunk )
+        {
+          //Assumes that whatever was there has been cleaned up
+          Array retval;
+          tok->type = Token::ArrayToken;
+          tok->data.array.ptr = NULL;
+          retval.tok_   = tok;
+          retval.chunk_ = chunk;
+          retval.end_   = NULL;
+          return retval;
         }
 
         template<typename T, typename W>
         bool add( const W & value )
         {
           //Get the spot for the token...
-          PageEntry<ArrayEntry> * array_entry = doc_->create_array_entry();
-          array_entry->d.d.next = NULL;
+          ArrayEntry * array_entry = chunk_->arrays().create_value();
+          array_entry->next = NULL;
 
-          if( ! json_helper<T>::build( &array_entry->d.d.tok, doc_, value ) )
+          if( ! json_helper<T>::build( &array_entry->tok, chunk_, value ) )
           {
-            doc_->destroy_array( array_entry );
+            chunk_->arrays().destroy( array_entry );
             return false;
           }
 
           //Hook it int the array
           if( end_ )
           {
-            end_->d.d.next = &(array_entry->d.d);
+            end_->next = array_entry;
           }
           else
           {
-            tok_->data.array.ptr = &(array_entry->d.d);
+            tok_->data.array.ptr = array_entry;
           }
           end_ = array_entry;
 
@@ -358,128 +399,28 @@ namespace fastjson { namespace dom {
           return tok_;
         }
 
-        fastjson::Token * tok_;
-        Document * doc_;
-        PageEntry<ArrayEntry> * end_;
-    };
-
-    Array * Document::create_free_array()
-    {
-      Token * token = create_free_token();
-      token->type = Token::ArrayToken;
-      token->data.array.ptr = NULL;
-      return new Array( this, token );
-    }
-
-    Token * Document::create_free_token()
-    {
-      PageEntry<Token> * tok = free_tokens.create_value();
-      return &(tok->d.d);
-    }
-
-    struct JsonNode
-    {
-      JsonNode( Document * doc ) : doc_(doc) {}
-
-      template<typename T, typename W>
-        bool add( const std::string & key, const W & value )
-        {
-          if( type != JN_Dict ) { return false; }
-          return data.dict->add<T>(key,value);
-        }
-
-      template<typename T, typename W>
-        bool add( const W & value )
-        {
-          if( type != JN_Array ) { return false; }
-          return data.array->add<T>(value);
-        }
-
-      template<typename T>
-        T get( const std::string & key ) const
+      private:
+        Array() : tok_(NULL), chunk_(NULL), end_(NULL)
         {
         }
 
-      template<typename T>
-        bool try_convert( T& t) const
-      {
-        return false;
-      }
-
-      void add_raw_dict_entry( const std::string & key, const JsonNode & n )
-      {
-      }
-
-      void append_array_entry( const JsonNode & n )
-      {
-      }
-
-      JsonNode get_child( const std::string & key ) const;
-
-
-      static JsonNode dict( Document * doc )
-      {
-        JsonNode n(doc);
-        n.type = JN_Dict;
-        n.data.dict = doc->create_dictionary();
-        return n;
-      }
-
-      static JsonNode array( Document * doc )
-      {
-        JsonNode n(doc);
-        n.type = JN_Array;
-        n.data.array = doc->create_free_array();
-        return n;
-      }
-
-      std::string as_string()
-      {
-        return fastjson::as_string( token() );
-      }
-
-      const Token * token() const
-      {
-        switch( type )
-        {
-          case JN_Array:
-            return data.array->token();
-          case JN_Dict:
-            return data.dict->token();
-          default:
-            return NULL;
-        }
-      }
-
-      enum { JN_Array, JN_Dict } type;
-      union { Array* array; Dictionary * dict; } data;
-
-      Document * doc_;
+        Token      * tok_;
+        Chunk      * chunk_;
+        ArrayEntry * end_;
     };
 
 
-    //TODO: How do we avoid this causing leaks and memory unhappiness
-    template<>
-    struct json_helper<JsonNode>
-    {
-      static bool build( Token * tok, Document * doc, const JsonNode & node )
-      {
-        *tok = *node.token();
-        return true; 
-      }
-    };
+
 
     template< typename T >
     struct json_helper< std::vector<T> >
     {
-      static bool build( Token * tok, Document * doc, const std::vector<T> & v )
+      static bool build( Token * tok, Chunk * chunk, const std::vector<T> & v )
       {
-        tok->type = Token::ArrayToken;
-        tok->data.array.ptr  = NULL;
-        Array a( doc, tok );
-        for(unsigned int i=0; i<v.size(); ++i)
+        Array a = Array::create_array( tok, chunk );
+        for( unsigned int i=0; i<v.size(); ++i)
         {
-          if( ! a.add<T>( v[i] ) ) return false;
+          a.add<T>( v[i] );
         }
         return true;
       }
@@ -487,5 +428,9 @@ namespace fastjson { namespace dom {
 
   }
 }
+
+namespace fastjson { namespace util {
+ void set_string( Token * tok, dom::Chunk * chunk, const char * s );
+} }
 
 #endif
