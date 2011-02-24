@@ -20,6 +20,14 @@ namespace fastjson { namespace dom {
       {
       }
 
+        ~Pager()
+        {
+          for(unsigned int i=0; i<data.size(); ++i)
+          {
+            delete [] data[i];
+          }
+        }
+
         uint32_t n_available() const { return available_count_; }
 
         void create_and_add_page(uint32_t n)
@@ -32,6 +40,12 @@ namespace fastjson { namespace dom {
           }
           data.push_back(new_page);
           available_count_+=n;
+        }
+
+        //We dont really use N - but if we ever track in-use entries too we'll need it
+        void add_used_page( DATA * page, uint32_t /* N */ )
+        {
+          data.push_back(page);
         }
 
         DATA * create_value()
@@ -62,6 +76,8 @@ namespace fastjson { namespace dom {
         uint32_t available_count_;
     };
 
+    //NOTE: These dont clean up the strings... you need to do that your self.
+    // For us the chunk handles that.
     struct StringBuffer
     {
       public:
@@ -70,6 +86,15 @@ namespace fastjson { namespace dom {
           buf_ = new char[N];
           size_ = N;
           inuse_ = 0;
+        }
+
+        struct in_use {} ;
+
+        StringBuffer( char * buffer, unsigned int N, in_use )
+        {
+          buf_ = buffer;
+          size_ = N;
+          inuse_ = N;
         }
 
         unsigned int available() const { return size_ - inuse_; }
@@ -81,14 +106,14 @@ namespace fastjson { namespace dom {
           return start;
         }
 
+        void destroy() { delete [] buf_; buf_=NULL;}
+
       protected:
         char * buf_;
         unsigned int size_;
         unsigned int inuse_;
     };
 
-    class Dictionary;
-    class Array;
 
     // The idea behind a document is that it can maintain free lists of the unused elements.
     // It can allocate more memory as required, 
@@ -97,6 +122,13 @@ namespace fastjson { namespace dom {
     {
       public:
         Chunk() : arrays_(), dicts_(), strings_() {}
+        ~Chunk()
+        {
+          for(unsigned int i=0; i<strings_.size(); ++i)
+          {
+            strings_[i].destroy();
+          }
+        }
 
 
         //TODO: Shift this into an object containing the StringBuffers?
@@ -113,6 +145,22 @@ namespace fastjson { namespace dom {
           //Should use a minimum for this so that we get less fragmentation?
           strings_.push_back( StringBuffer( space_required ) );
           return strings_.back().write( b, space_required );
+        }
+
+
+        void add_array_page( ArrayEntry * entries, unsigned int N )
+        {
+          arrays_.add_used_page(entries, N);
+        }
+
+        void add_dict_page( DictEntry * entries, unsigned int N )
+        {
+          dicts_.add_used_page(entries, N);
+        }
+
+        void add_string_page( char * buffer, unsigned int L )
+        {
+          strings_.push_back( StringBuffer(buffer,L, StringBuffer::in_use() ) );
         }
 
         Pager<ArrayEntry>& arrays() { return arrays_; }
@@ -182,6 +230,14 @@ namespace fastjson { namespace dom {
           tok_->data.value.size = s.size();
         }
 
+        void set_raw_cstring( const char * cstr )
+        {
+          tok_->data.value.type_hint = ValueType::StringHint;
+          size_t len = strlen(cstr);
+          tok_->data.value.ptr = chunk_->create_raw_buffer( cstr, len );
+          tok_->data.value.size = len;
+        }
+
         const Token * token() const
         {
           return tok_;
@@ -209,6 +265,13 @@ namespace fastjson { namespace dom {
         v.set_raw_string( value );
         return true; 
       }
+      static bool from_json_value( const Token * tok, std::string * s )
+      {
+        if(!tok || tok->type!=Token::ValueToken ) return false;
+        if(tok->data.value.ptr) { *s = std::string( tok->data.value.ptr, tok->data.value.size); }
+        *s = "";
+        return true;
+      }
     };
 
 
@@ -220,6 +283,15 @@ namespace fastjson { namespace dom {
         Value v = Value::create_value(tok,chunk);
         v.set_numeric<T>(value);
         return true; 
+      }
+
+      static bool from_json_value( const Token * tok, T * v )
+      {
+        if(!tok || tok->type!=Token::ValueToken ) return false;
+        if( ! tok->data.value.ptr ) { *v = 0; }
+        std::stringstream ss(std::string( tok->data.value.ptr, tok->data.value.size));
+        ss>>*v;
+        return true;
       }
     };
 
@@ -264,6 +336,7 @@ namespace fastjson { namespace dom {
           retval.tok_   = tok;
           retval.chunk_ = chunk;
           retval.end_   = end;
+          return retval;
         }
 
         static Dictionary create_dict( Token * tok, Chunk * chunk )
@@ -303,6 +376,25 @@ namespace fastjson { namespace dom {
           return true;
         }
 
+        template<typename T>
+        bool get( const std::string & k, T * value )
+        {
+          DictEntry * child = tok_->data.dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              {
+                return json_helper<T>::from_json_value( tok_, value );
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        }
+
         const Token * token() const
         {
           return tok_;
@@ -318,6 +410,48 @@ namespace fastjson { namespace dom {
         DictEntry * end_;
     };
 
+    class Dictionary_const
+    {
+      public:
+        static Dictionary_const as_dict( const Token * tok )
+        {
+          Dictionary_const retval;
+          assert(tok->type==Token::DictToken);
+          retval.tok_   = tok;
+          return retval;
+        }
+
+        template<typename T>
+        bool get( const std::string & k, T * value )
+        {
+          DictEntry * child = tok_->data.dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              {
+                return json_helper<T>::from_json_value( tok_, value );
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        }
+
+        const Token * token() const
+        {
+          return tok_;
+        }
+
+        protected:
+        Dictionary_const() : tok_(NULL)
+        {
+        }
+
+        const Token * tok_;
+    };
 
 
     class Array
@@ -410,7 +544,22 @@ namespace fastjson { namespace dom {
         }
         return true;
       }
+      static bool from_json_value( const Token * tok, std::vector<T> * data )
+      {
+        if(!tok || tok->type!=Token::ArrayToken ) return false;
+        std::vector<T> retval;
+        ArrayEntry * child = tok->data.array.ptr;
+        while(child)
+        {
+          retval.push_back(T());
+          if(! json_helper<T>::from_json_value( &child->tok, &retval.back() ) ) return false;
+          child = child->next;
+        }
+        return true;
+      }
     };
+
+    bool parse_string( const std::string & s, Token * tok, Chunk * chunk, std::string * error_message );
 
   }
 }

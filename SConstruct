@@ -16,7 +16,7 @@ print "Building version %s"%git_sha
 
 env = Environment()
 env.Append( CPPDEFINES={'GITSHAMOD':'"\\"%s\\""'%git_sha} )
-env.Append( CPPPATH=['./include'] )
+env.Append( CPPPATH=['.'] )
 
 if sys.platform=="linux2" or sys.platform=="linux":
   env.Append( CXXFLAGS='-pthread')
