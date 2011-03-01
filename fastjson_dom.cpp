@@ -71,6 +71,64 @@ namespace fastjson { namespace dom {
     return true;
   }
 
+  void clone_token( const Token * in_token, Token * out_token, Chunk * chunk )
+  {
+    switch( in_token->type )
+    {
+      case Token::ArrayToken:
+        {
+          Array a = Array::create_array( out_token, chunk );
+          //Add all the children.
+          ArrayEntry * child_orig = in_token->data.array.ptr;
+          while( child_orig )
+          {
+            ArrayEntry * child_copy = a.add_child_raw();
+            clone_token( &child_orig->tok, &child_copy->tok, chunk );
+            child_orig = child_orig->next;
+          }
+        }
+        break;
+      case Token::DictToken:
+        {
+          Dictionary d = Dictionary::create_dict( out_token, chunk );
+          //Add all the children.
+          DictEntry * child_orig = in_token->data.dict.ptr;
+          while( child_orig )
+          {
+            DictEntry * child_copy = d.add_child_raw();
+            clone_token( &child_orig->key_tok, &child_copy->key_tok, chunk );
+            clone_token( &child_orig->value_tok, &child_copy->value_tok, chunk );
+            child_orig = child_orig->next;
+          }
+        }
+        break;
+      case Token::ValueToken:
+        {
+          out_token->type = Token::ValueToken;
+          out_token->data.value.size = in_token->data.value.size;
+          out_token->data.value.type_hint = in_token->data.value.type_hint;
+          if( in_token->data.value.ptr == NULL )
+          {
+            out_token->data.value.ptr = NULL;
+          }
+          else
+          {
+            out_token->data.value.ptr = chunk->create_raw_buffer( in_token->data.value.ptr, in_token->data.value.size );
+          }
+        }
+        break;
+      case Token::LiteralTrueToken:
+        out_token->type=Token::LiteralTrueToken;
+        break;
+      case Token::LiteralFalseToken:
+        out_token->type=Token::LiteralFalseToken;
+        break;
+      case Token::LiteralNullToken:
+        out_token->type=Token::LiteralNullToken;
+        break;
+    }
+  }
+
 
 } }
 
