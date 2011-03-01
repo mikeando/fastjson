@@ -268,7 +268,7 @@ namespace fastjson { namespace dom {
       static bool from_json_value( const Token * tok, std::string * s )
       {
         if(!tok || tok->type!=Token::ValueToken ) return false;
-        if(tok->data.value.ptr) { *s = std::string( tok->data.value.ptr, tok->data.value.size); }
+        if(tok->data.value.ptr) { *s = std::string( tok->data.value.ptr, tok->data.value.size); return true; }
         *s = "";
         return true;
       }
