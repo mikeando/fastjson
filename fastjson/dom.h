@@ -2,6 +2,7 @@
 #define FASTJSON_DOM_H
 
 #include "fastjson/core.h"
+#include "fastjson/utils.h"
 
 //TODO: Ugly that we need this.. can we remove it later?
 #include <vector>
@@ -289,9 +290,7 @@ namespace fastjson { namespace dom {
       {
         if(!tok || tok->type!=Token::ValueToken ) return false;
         if( ! tok->data.value.ptr ) { *v = 0; }
-        std::stringstream ss(std::string( tok->data.value.ptr, tok->data.value.size));
-        ss>>*v;
-        return true;
+        return utils::try_convert<T>( tok->data.value.ptr, tok->data.value.size, v );
       }
     };
 
