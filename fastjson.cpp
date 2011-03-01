@@ -363,10 +363,41 @@ which will be in the range 0xDC00..0xDFFF.
                 }
               }
               break;
-            default:
-              //TODO: We should check that its a valid escape character
+            case '"':
+              callback->string_add_ubyte( '"' );
               ++newcursor;
-              callback->string_add_ubyte( 0 );
+              break;
+            case '\\':
+              callback->string_add_ubyte( '\\' );
+              ++newcursor;
+              break;
+            case '/':
+              callback->string_add_ubyte( '/' );
+              ++newcursor;
+              break;
+            case 'b':
+              callback->string_add_ubyte( 0x08 );
+              ++newcursor;
+              break;
+            case 'f':
+              callback->string_add_ubyte( 0x0C );
+              ++newcursor;
+              break;
+            case 'n':
+              callback->string_add_ubyte( 0x0A );
+              ++newcursor;
+              break;
+            case 'r':
+              callback->string_add_ubyte( 0x0D );
+              ++newcursor;
+              break;
+            case 't':
+              callback->string_add_ubyte( 0x09 );
+              ++newcursor;
+              break;
+            default:
+              callback->on_error(3006, "Invalid escape", start, newcursor, end );
+              return NULL;
           }
           break;
         default:

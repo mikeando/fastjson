@@ -10,7 +10,7 @@ namespace fastjson
   FJ_UC3, // : Unicode 3 byte start character
   FJ_UC4, // : Unicode 4 byte start character
   FJ_ESC, // : Has nice (required) escape
-  FJ_ERR, // : Has nice (required) escape
+  FJ_ERR, // : Should never occur
   };
 
  static const DecodeTypes decode_types[256]
@@ -37,6 +37,20 @@ namespace fastjson
           };
 
   unsigned char hex_digit[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E','F' };
+
+
+  static const char escape_character[128] 
+        = { /* 0       1       2       3         4       5       6      7          8       9       A       B         C       D       E       F */
+ /* 0 */       0,      0,      0,      0,        0,      0,      0,     0,         'b',    't',    'n',    0,        'f',    'r',    0,       0,      
+ /* 1 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+ /* 2 */       0,      0,      '"',    0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+ /* 3 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+
+ /* 4 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+ /* 5 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        '\\',   0,      0,       0,      
+ /* 6 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+ /* 7 */       0,      0,      0,      0,        0,      0,      0,     0,         0,      0,      0,      0,        0,      0,      0,       0,      
+          };
 
 
   struct Writer
@@ -322,7 +336,7 @@ namespace fastjson
                   break;
                 case FJ_ESC: // : Has nice (required) escape
                   w->write('\\');
-                  w->write('?');
+                  w->write(escape_character[*start]);
                   start+=1;
                   break;
                 case FJ_ERR: // : Should not occur in a UTF-8 stream
