@@ -303,7 +303,7 @@ namespace fastjson { namespace dom {
     template<>
     struct json_helper<bool>
     {
-      static bool build( Token * tok, Chunk * chunk, bool value )
+      static bool build( Token * tok, Chunk * /* chunk */, bool value )
       {
         if(value)
         {
