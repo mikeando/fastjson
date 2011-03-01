@@ -376,6 +376,23 @@ namespace fastjson { namespace dom {
           return true;
         }
 
+        DictEntry * add_child_raw()
+        {
+          DictEntry * dv = chunk_->dicts().create_value();
+          dv->next = NULL;
+
+          if( end_ )
+          {
+            end_->next = dv;
+          }
+          else
+          {
+            tok_->data.dict.ptr = dv;
+          }
+          end_ = dv;
+          return dv;
+        }
+
         template<typename T>
         bool get( const std::string & k, T * value )
         {
@@ -394,6 +411,25 @@ namespace fastjson { namespace dom {
           }
           return false;
         }
+
+        bool get_raw( const std::string & k, Token * token )
+        {
+          DictEntry * child = tok_->data.dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              {
+                *token = child->value_tok;
+                return true;
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        } 
 
         const Token * token() const
         {
@@ -512,6 +548,25 @@ namespace fastjson { namespace dom {
           end_ = array_entry;
 
           return true;
+        }
+
+        ArrayEntry * add_child_raw()
+        {
+          ArrayEntry * array_entry = chunk_->arrays().create_value();
+          array_entry->next = NULL;
+
+          //Hook it int the array
+          if( end_ )
+          {
+            end_->next = array_entry;
+          }
+          else
+          {
+            tok_->data.array.ptr = array_entry;
+          }
+          end_ = array_entry;
+
+          return array_entry;
         }
 
         const fastjson::Token * token() const
