@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <assert.h>
 
 namespace fastjson
 {

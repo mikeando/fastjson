@@ -10,6 +10,7 @@
 
 //TODO: Remove this when we have better error handling.
 #include <iostream>
+#include <string.h>
 
 namespace fastjson
 {

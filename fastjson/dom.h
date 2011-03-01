@@ -7,6 +7,7 @@
 //TODO: Ugly that we need this.. can we remove it later?
 #include <vector>
 #include <sstream>
+#include <string.h>
 
 namespace fastjson { namespace dom {
 
