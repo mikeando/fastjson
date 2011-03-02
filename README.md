@@ -46,6 +46,7 @@ Some of this will be hidden when I work out the neatest way.
 FastJson under the covers
 -------------------------
 First some things to note:
+
 1. FastJson uses an analyse then allocate approach, meaning that while it reads over the json twice, it only allocates its data in large blocks. This makes it fast.
 2. FastJson values are stored as strings with a type hint. This means large numbers can be read easily without fastjson caring about precission or length, this is the users concern.
 3. Since we allocate in big chunks, we need something to do our memory management for us .. thats where the Chunk objects come in.
