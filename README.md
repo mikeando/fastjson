@@ -28,16 +28,16 @@ Writing one back to a string is even easier
 
 Manipulating or interogating the JSON tree is a little uglier - for this there are some helper classes in the dom namespace
 
-   fastjson::dom::Dictionary dict = fastjson::dom::Dictionary::as_dict( &token, &chunk );
-   //Get the id field
-   int id;
-   if( dict.get<int>("an_id", &id) )
-   {
-     std::cerr<<"NO id found"<<std::endl;
-     return;
-   }
-   double f = id+0.5;
-   dict.add<double>( "something", &f );
+    fastjson::dom::Dictionary dict = fastjson::dom::Dictionary::as_dict( &token, &chunk );
+    //Get the id field
+    int id;
+    if( dict.get<int>("an_id", &id) )
+    {
+      std::cerr<<"NO id found"<<std::endl;
+      return;
+    }
+    double f = id+0.5;
+    dict.add<double>( "something", &f );
 
 To properly navigate a deeper tree you need to use some of the lower-level constructs, covered in the next section.
 Some of this will be hidden when I work out the neatest way.
@@ -54,14 +54,14 @@ Now some words about tokens. A token is just a discriminated union type. It can 
 
 This means traversing an Array in json looks like this:
 
-   Token token = ...
-   if( token.type != Token::ArrayToken ) { ... }
-   ArrayEntry * child = token.data.array.ptr;
-   while(child)
-   {
-      ...
-      child = child->next;
-   }
+    Token token = ...
+    if( token.type != Token::ArrayToken ) { ... }
+    ArrayEntry * child = token.data.array.ptr;
+    while(child)
+    {
+       ...
+       child = child->next;
+    }
 
 Traversing a dictionary is similar.
 
