@@ -342,6 +342,14 @@ namespace fastjson { namespace dom {
         }
         return true; 
       }
+      static bool from_json_value( const Token * token, bool * v )
+      {
+        if( ! token ) return false;
+        if( ! v ) return false;
+        if( token->type == Token::LiteralTrueToken ) { *v = true; return true; }
+        if( token->type == Token::LiteralFalseToken ) { *v = false; return true; }
+        return false;
+      }
     };
 
     class Dictionary
