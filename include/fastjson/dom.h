@@ -503,7 +503,7 @@ namespace fastjson { namespace dom {
             {
               if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
               {
-                return json_helper<T>::from_json_value( tok_, value );
+                return json_helper<T>::from_json_value( &child->value_tok, value );
               }
             }
             child = child->next;
