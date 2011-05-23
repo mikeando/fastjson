@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "fastjson.h"
+#include "fastjson/fastjson.h"
 #include <vector>
 #include <iostream>
 

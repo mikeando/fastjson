@@ -3,7 +3,7 @@
 
 #include "saru_cxx.h"
 
-#include "fastjson.h"
+#include "fastjson/fastjson.h"
 #include "fastjson/dom.h"
 
 class TestFixture

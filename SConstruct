@@ -15,8 +15,7 @@ if result!="":
 print "Building version %s"%git_sha
 
 env = Environment()
-env.Append( CPPDEFINES={'GITSHAMOD':'"\\"%s\\""'%git_sha} )
-env.Append( CPPPATH=['.'] )
+env.Append( CPPPATH=['./include'] )
 
 if sys.platform=="linux2" or sys.platform=="linux":
   env.Append( CXXFLAGS='-pthread')
@@ -29,5 +28,17 @@ env.Append( CPPFLAGS=['-g','-Wall','-O2'] )
 
 #A library containing several of the objects just to make linking the tests easier
 
-src = Glob('*.cpp')
+def version_action(target,source,env):
+  """
+  Generate file with current version info
+  """
+  fd=open(target[0].path,'w')
+  fd.write( "static const char version_cstr[] = \"%s (\" __DATE__ \")\";\nconst char * version()\n{\n  return version_cstr;\n}\n" % git_sha )
+  fd.close()
+  return 0
+
+build_version = env.Command( 'src/autogen_version.cpp', [], Action(version_action) )
+env.AlwaysBuild(build_version)
+
+src = Glob('src/*.cpp')
 env.Library('fastjson', src)

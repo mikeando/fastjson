@@ -27,7 +27,7 @@
 
 #include "fastjson/core.h"
 #include "fastjson/dom.h"
-#include "fastjson.h"
+#include "fastjson/fastjson.h"
 
 namespace fastjson { namespace dom {
 
