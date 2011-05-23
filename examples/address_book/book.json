@@ -1,0 +1,12 @@
+[
+  {
+    "name":"John John",
+    "address":"Somewhere",
+    "phone":{"mobile":"1231313","office":"312312312"}
+  },
+  {
+    "name":"Jane Q. Fweetbert",
+    "address":"Nowhere",
+    "phone":{"mobile":"4321421"}
+  }
+]
