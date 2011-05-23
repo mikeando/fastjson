@@ -636,6 +636,7 @@ namespace fastjson { namespace dom {
       }
       static bool from_json_value( const Token * tok, std::vector<T> * data )
       {
+        if(!data) return false;
         if(!tok || tok->type!=Token::ArrayToken ) return false;
         std::vector<T> retval;
         ArrayEntry * child = tok->data.array.ptr;
@@ -645,6 +646,7 @@ namespace fastjson { namespace dom {
           if(! json_helper<T>::from_json_value( &child->tok, &retval.back() ) ) return false;
           child = child->next;
         }
+        *data = retval;
         return true;
       }
     };
