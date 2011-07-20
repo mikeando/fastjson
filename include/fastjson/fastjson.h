@@ -79,6 +79,7 @@ namespace fastjson
   {
     public:
       JsonElementCount() :
+        mode(0),
         arrays(0),
         dicts(0),
         strings(0),
@@ -128,6 +129,8 @@ namespace fastjson
           while( sp < ec.locn ) { std::cerr<<' '; ++sp; }
           std::cerr<<"^"<<std::endl;
       }
+
+      unsigned int mode;
 
     protected:
       uint32_t arrays;

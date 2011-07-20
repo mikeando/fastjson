@@ -555,14 +555,23 @@ which will be in the range 0xDC00..0xDFFF.
         return cursor+1;
     }
 
-    //Nope.. we'd better be getting a string then
-    if( *cursor=='"' )
+
+    if( callback->mode == mode::ext_any_as_key )
     {
-      callback->start_string();
-      //Transition the state for when we complete the sub-state, then move into a sub state.
       state->back().state = state::dict_read_value;
-      state->push_back( ParserState(state::start_string) );
-      return cursor+1;
+      return parse_start_object( cursor, end, callback, state );
+    }
+    else
+    {
+      //Nope.. we'd better be getting a string then
+      if( *cursor=='"' )
+      {
+        callback->start_string();
+        //Transition the state for when we complete the sub-state, then move into a sub state.
+        state->back().state = state::dict_read_value;
+        state->push_back( ParserState(state::start_string) );
+        return cursor+1;
+      }
     }
 
     //Otherwise something bad is happenening
@@ -896,6 +905,8 @@ which will be in the range 0xDC00..0xDFFF.
 
       Token * cur_tok;
 
+      unsigned int mode;
+
       Token * get_current_token()
       {
         return cur_tok;
@@ -979,6 +990,7 @@ which will be in the range 0xDC00..0xDFFF.
       p.string_ptr = doc->string_store;
       p.array_ptr = doc->array_store;
       p.dict_ptr = doc->dict_store;
+      p.mode = doc->mode;
       return parse<XParser>( start,end, &p);
   }
 
