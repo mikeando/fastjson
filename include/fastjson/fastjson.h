@@ -140,7 +140,7 @@ namespace fastjson
       array_store(NULL),
       dict_store(NULL),
       mode(0),
-      error_callback(NULL),
+      user_error_callback(NULL),
       user_data(NULL)
     {}
 
@@ -149,7 +149,7 @@ namespace fastjson
     ArrayEntry * array_store;
     DictEntry * dict_store;
     unsigned int mode;
-    fastjson::UserErrorCallback error_callback;
+    fastjson::UserErrorCallback user_error_callback;
     void * user_data;
   };
 

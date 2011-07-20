@@ -37,7 +37,7 @@ struct TestFixture
         doc.dict_store  = dict_entries;
 
         ErrorHelper eh;
-        doc.error_callback = &ErrorHelper::on_error;
+        doc.user_error_callback = &ErrorHelper::on_error;
         doc.user_data = &eh;
 
         bool ok = fastjson::parse_doc( "{2:\"y\"}" , &doc );
@@ -58,7 +58,7 @@ struct TestFixture
         doc.dict_store  = dict_entries;
 
         ErrorHelper eh;
-        doc.error_callback = &ErrorHelper::on_error;
+        doc.user_error_callback = &ErrorHelper::on_error;
         doc.user_data = &eh;
 
         //Create this first so it will exist after we get our error messages.

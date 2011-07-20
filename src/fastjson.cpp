@@ -991,7 +991,7 @@ which will be in the range 0xDC00..0xDFFF.
   {
       if(!doc) return false;
       //This assumes we have enough space...
-      XParser p(doc->error_callback,doc->user_data);
+      XParser p(doc->user_error_callback,doc->user_data);
       p.doc = doc;
       p.string_ptr = doc->string_store;
       p.array_ptr = doc->array_store;
