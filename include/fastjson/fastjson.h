@@ -83,7 +83,9 @@ namespace fastjson
         arrays(0),
         dicts(0),
         strings(0),
-        total_string_length(0)
+        total_string_length(0),
+        user_error_callback(NULL),
+        user_data(NULL)
     {
       context.reserve(5);
       context.push_back(Root);
@@ -121,13 +123,20 @@ namespace fastjson
 
       void on_error( const ErrorContext & ec )
       {
-          std::cerr<<"OMG an error ["<<ec.errcode<<"] : "<<ec.mesg<<std::endl;
+        if(user_error_callback)
+        {
+          user_error_callback(user_data,ec);
+        }
+        else
+        {
+          std::cerr<<"fastjson : an error occured ["<<ec.errcode<<"] : "<<ec.mesg<<std::endl;
           std::cerr<<"It seems to have happened here..."<<std::endl;
           const unsigned char * ep = (ec.locn+10<ec.end_context)?ec.locn+10:ec.end_context;
           const unsigned char * sp = (ec.locn-10>ec.start_context)?ec.locn-10:ec.start_context;
           std::cerr<<std::string(sp, ep)<<std::endl;
           while( sp < ec.locn ) { std::cerr<<' '; ++sp; }
           std::cerr<<"^"<<std::endl;
+        }
       }
 
       unsigned int mode;
@@ -143,6 +152,8 @@ namespace fastjson
       std::vector<Context> context;
 
     public:
+      fastjson::UserErrorCallback user_error_callback;
+      void * user_data;
   };
 
   bool count_elements( const std::string & json_str, JsonElementCount * count );

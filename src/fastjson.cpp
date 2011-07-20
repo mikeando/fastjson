@@ -912,15 +912,21 @@ which will be in the range 0xDC00..0xDFFF.
         return cur_tok;
       }
 
-      void on_error( const ErrorContext & error_context )
+      void on_error( const ErrorContext & ec )
       {
         if(user_error_callback)
         {
-          user_error_callback(user_data, error_context);
+          user_error_callback(user_data, ec);
         }
         else
         {
-          std::cerr<<"fastjson - error ["<<error_context.errcode<<"] "<<error_context.mesg<<std::endl;
+          std::cerr<<"fastjson : an error occured ["<<ec.errcode<<"] : "<<ec.mesg<<std::endl;
+          std::cerr<<"It seems to have happened here..."<<std::endl;
+          const unsigned char * ep = (ec.locn+10<ec.end_context)?ec.locn+10:ec.end_context;
+          const unsigned char * sp = (ec.locn-10>ec.start_context)?ec.locn-10:ec.start_context;
+          std::cerr<<std::string(sp, ep)<<std::endl;
+          while( sp < ec.locn ) { std::cerr<<' '; ++sp; }
+          std::cerr<<"^"<<std::endl;
         }
       }
 
