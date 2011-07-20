@@ -652,7 +652,7 @@ namespace fastjson { namespace dom {
       }
     };
 
-    bool parse_string( const std::string & s, Token * tok, Chunk * chunk, UserErrorCallback user_error_callback, void * user_data );
+    bool parse_string( const std::string & s, Token * tok, Chunk * chunk, unsigned int parse_mode, UserErrorCallback user_error_callback, void * user_data );
     void clone_token( const Token * in_token, Token * out_token, Chunk * chunk );
 
   }

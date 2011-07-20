@@ -31,11 +31,12 @@
 
 namespace fastjson { namespace dom {
 
-  bool parse_string( const std::string & s, Token * tok, Chunk * chunk, fastjson::UserErrorCallback user_error_callback, void * user_data )
+  bool parse_string( const std::string & s, Token * tok, Chunk * chunk, unsigned int mode, fastjson::UserErrorCallback user_error_callback, void * user_data )
   {
     fastjson::JsonElementCount count;
     count.user_error_callback = user_error_callback;
     count.user_data = user_data;
+    count.mode = mode;
 
     if( ! fastjson::count_elements( s, &count ) ) return false;
 
@@ -43,6 +44,7 @@ namespace fastjson { namespace dom {
     fastjson::Document doc;
     doc.user_error_callback = user_error_callback;
     doc.user_data = user_data;
+    doc.mode = mode;
     if( count.n_array_elements() > 0 )
     {
       doc.array_store = new fastjson::ArrayEntry[ count.n_array_elements() ];

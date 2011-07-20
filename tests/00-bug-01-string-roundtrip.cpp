@@ -28,7 +28,7 @@ class TestFixture
     {
       std::string in_str("\"hello\"");
 
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, 0, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
@@ -36,7 +36,7 @@ class TestFixture
     {
       std::string in_str("\"\\t\\n\\\\\"");
 
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, 0, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
@@ -44,7 +44,7 @@ class TestFixture
     {
       std::string in_str("\"xx\\txx\"");
 
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, 0, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
@@ -52,7 +52,7 @@ class TestFixture
     {
       std::string in_str("\"xx\\txx\"");
 
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, 0, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( fastjson::Token::ValueToken, token.type );
       saru_assert_equal( 5u, token.data.value.size );
       saru_assert( token.data.value.ptr );
@@ -69,6 +69,7 @@ class TestFixture
 
       saru_assert_equal( "\"xx\\txx\"", fastjson::as_string( &token ) ); 
     }
+
 };
 
 int main()

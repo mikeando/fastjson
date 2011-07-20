@@ -26,7 +26,7 @@ class TestFixture
         fastjson::dom::Chunk chunk;
         fastjson::Token token;
 
-        saru_assert( fastjson::dom::parse_string(json_string, &token, &chunk, NULL, NULL ) );
+        saru_assert( fastjson::dom::parse_string(json_string, &token, &chunk, 0, NULL, NULL ) );
 
         fastjson::dom::clone_token( &token, &copy_token, &copy_chunk );
       }
