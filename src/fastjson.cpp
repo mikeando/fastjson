@@ -34,6 +34,8 @@
 #define C_WHITE    0x40
 #define C_DIGIT(X) (0x80 + 0x20 + (X))
 
+namespace fastjson { namespace internal {
+
 static const uint8_t fj_char_traits[256] =
 {
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
@@ -103,12 +105,12 @@ const unsigned char * parse_number( const unsigned char * start, const unsigned 
 {
   const unsigned char * cursor = start;
   //Eat the optional sign
-  if( cursor==end ) { p->on_error(1000, "end of input during number",start,cursor,end); return start; }
+  if( cursor==end ) { p->on_error( ErrorContext( 1000, "end of input during number",start,cursor,end) ); return start; }
   if( *cursor=='-' ) { ++cursor; }
 
 
   //Eat the integer mantissa
-  if( cursor==end ) { p->on_error(1000, "end of input during number",start,cursor,end); return start; }
+  if( cursor==end ) { p->on_error( ErrorContext( 1000, "end of input during number",start,cursor,end)); return start; }
   if( *cursor=='0' ) { ++cursor;}
   else if( isdigit(*cursor) )
   {
@@ -121,7 +123,7 @@ const unsigned char * parse_number( const unsigned char * start, const unsigned 
   else
   {
     //Its not valid ..
-    p->on_error(1001, "invalid number",start,cursor,end);
+    p->on_error( ErrorContext( 1001, "invalid number",start,cursor,end));
     return start;
   }
   if( cursor==end ) return cursor;
@@ -161,6 +163,8 @@ const unsigned char * parse_number( const unsigned char * start, const unsigned 
   return cursor;
 }
 
+} }
+
 namespace fastjson
 {
 
@@ -191,7 +195,7 @@ namespace fastjson
   static inline const unsigned char * eat_whitespace( const unsigned char * start, const unsigned char * end )
   {
     const unsigned char * cursor = start;
-    while( cursor!=end && iswhite(*cursor) )
+    while( cursor!=end && ::fastjson::internal::iswhite(*cursor) )
     {
       ++cursor;
     }
@@ -211,7 +215,7 @@ namespace fastjson
     const unsigned char * cursor = eat_whitespace(start,end);
     if( cursor==end )
     {
-      callback->on_error(2000, "Expected object, got end of input instead",start,cursor,end);
+      callback->on_error( ErrorContext( 2000, "Expected object, got end of input instead",start,cursor,end));
       return NULL;
     }
 
@@ -232,7 +236,7 @@ namespace fastjson
       case 't':
         if( end - cursor  < 4 || cursor[1]!='r' || cursor[2]!='u' || cursor[3]!='e' )
         {
-          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          callback->on_error( ErrorContext( 2001, "Invalid litteral found when expecting object", start, cursor, end));
           return NULL;
         }
         callback->on_true();
@@ -240,7 +244,7 @@ namespace fastjson
       case 'f':
         if( end - cursor  < 5 || cursor[1]!='a' || cursor[2]!='l' || cursor[3]!='s' || cursor[4]!='e' )
         {
-          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          callback->on_error( ErrorContext( 2001, "Invalid litteral found when expecting object", start, cursor, end));
           return NULL;
         }
         callback->on_false();
@@ -248,7 +252,7 @@ namespace fastjson
       case 'n':
         if( end - cursor  < 4 || cursor[1]!='u' || cursor[2]!='l' || cursor[3]!='l' )
         {
-          callback->on_error(2001, "Invalid litteral found when expecting object", start, cursor, end);
+          callback->on_error( ErrorContext( 2001, "Invalid litteral found when expecting object", start, cursor, end));
           return NULL;
         }
         callback->on_null();
@@ -264,7 +268,7 @@ namespace fastjson
         return cursor;
     }
 
-    callback->on_error(2002, "Invalid data found", start, cursor, end);
+    callback->on_error( ErrorContext( 2002, "Invalid data found", start, cursor, end));
     return NULL;
   }
 
@@ -283,15 +287,22 @@ namespace fastjson
   const unsigned char * read_unicode_escape( const unsigned char * start, const unsigned char * end, uint32_t * val, T * callback )
   {
      //We need at least 6 characters \uxxxx
-     if( end-start < 6    ) { callback->on_error(3000,"Insufficient data for unicode escape",start,start,end); return NULL; }
-     if( start[0] != '\\' ) { callback->on_error(3001,"Unicode escape must start \\u",start,start,end);        return NULL; }
-     if( start[1] != 'u'  ) { callback->on_error(3001,"Unicode escape must start \\u",start,start,end);        return NULL; }
-     if( ! ( ishex( start[2] ) && ishex( start[3] ) && ishex( start[4] ) && ishex( start[5] ) ) )
+     if( end-start < 6    ) { callback->on_error( ErrorContext( 3000,"Insufficient data for unicode escape",start,start,end)); return NULL; }
+     if( start[0] != '\\' ) { callback->on_error( ErrorContext( 3001,"Unicode escape must start \\u",start,start,end));        return NULL; }
+     if( start[1] != 'u'  ) { callback->on_error( ErrorContext( 3001,"Unicode escape must start \\u",start,start,end));        return NULL; }
+     if( ! (
+      ::fastjson::internal::ishex( start[2] ) &&
+      ::fastjson::internal::ishex( start[3] ) &&
+      ::fastjson::internal::ishex( start[4] ) &&
+      ::fastjson::internal::ishex( start[5] ) ) )
      {
-       callback->on_error(3002,"Nonhex character found in unicode escape",start,start,end);
+       callback->on_error( ErrorContext( 3002,"Nonhex character found in unicode escape",start,start,end));
        return NULL;
      }
-     *val = ( hexdigit(start[2]) << 12) | ( hexdigit(start[3])<<8 ) | hexdigit(start[4])<<4 | hexdigit(start[5] );
+     *val = ( ::fastjson::internal::hexdigit(start[2]) << 12 ) |
+            ( ::fastjson::internal::hexdigit(start[3]) <<  8 ) |
+            ( ::fastjson::internal::hexdigit(start[4]) <<  4 ) |
+            ( ::fastjson::internal::hexdigit(start[5]) <<  0 );
     return start+6;
   }
 
@@ -317,7 +328,7 @@ namespace fastjson
           ++newcursor;
           if(newcursor==end)
           {
-            callback->on_error(3003, "End of input while parsing escaped character", start, newcursor, end);
+            callback->on_error( ErrorContext( 3003, "End of input while parsing escaped character", start, newcursor, end));
             return NULL;
           }
           //What kind of escape is it?
@@ -370,14 +381,14 @@ which will be in the range 0xDC00..0xDFFF.
                   }
                   else
                   {
-                    callback->on_error(3004, "Invalid second surrogate pair found when decoing unicode escape", start, newcursor, end);
+                    callback->on_error( ErrorContext( 3004, "Invalid second surrogate pair found when decoing unicode escape", start, newcursor, end));
                     return NULL;
                   }
                 }
                 /* We should _never_ get a second code point of a surrogate pair here */
                 else if( v>=0xDC00 && v<=0xDFFF )
                 {
-                  callback->on_error(3005, "Invalid second surrogate pair without first surrogate pair when decoding unicode escape", start, newcursor, end);
+                  callback->on_error( ErrorContext( 3005, "Invalid second surrogate pair without first surrogate pair when decoding unicode escape", start, newcursor, end));
                   return NULL;
                 }
                 else
@@ -423,7 +434,7 @@ which will be in the range 0xDC00..0xDFFF.
               ++newcursor;
               break;
             default:
-              callback->on_error(3006, "Invalid escape", start, newcursor, end );
+              callback->on_error( ErrorContext( 3006, "Invalid escape", start, newcursor, end ));
               return NULL;
           }
           break;
@@ -432,7 +443,7 @@ which will be in the range 0xDC00..0xDFFF.
           ++newcursor;
       }
     }
-    callback->on_error( -1000, "Internal error parsing string - should never get here", start,newcursor,end );
+    callback->on_error( ErrorContext(  -1000, "Internal error parsing string - should never get here", start,newcursor,end ));
     return NULL;
   }
 
@@ -443,7 +454,7 @@ which will be in the range 0xDC00..0xDFFF.
       T * callback,
       std::vector<ParserState> * state )
   {
-    const unsigned char * cursor = ::parse_number( start, end, callback );
+    const unsigned char * cursor = ::fastjson::internal::parse_number( start, end, callback );
     if(cursor==start) return NULL;
 
     callback->end_number(start,cursor);
@@ -463,7 +474,7 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = eat_whitespace(start,end);
     if(cursor==end)
     {
-      callback->on_error(4001,"End of input while parsing start of array",start,cursor,end);
+      callback->on_error( ErrorContext( 4001,"End of input while parsing start of array",start,cursor,end));
       return NULL;
     }
 
@@ -493,7 +504,7 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = eat_whitespace(start,end);
     if(cursor==end)
     {
-      callback->on_error(4002,"End of input while parsing array",start,cursor,end);
+      callback->on_error( ErrorContext( 4002,"End of input while parsing array",start,cursor,end));
       return NULL;
     }
 
@@ -517,7 +528,7 @@ which will be in the range 0xDC00..0xDFFF.
     }
 
     // We got something unexpected..
-    callback->on_error(4003, "Unexpected character while parsing array", start, cursor, end);
+    callback->on_error( ErrorContext( 4003, "Unexpected character while parsing array", start, cursor, end));
     return NULL;
   }
 
@@ -532,7 +543,7 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = eat_whitespace(start,end);
     if(cursor==end)
     {
-      callback->on_error(5001, "End of input while parsing dict start", start, cursor, end);
+      callback->on_error( ErrorContext( 5001, "End of input while parsing dict start", start, cursor, end));
       return NULL;
     }
 
@@ -555,7 +566,7 @@ which will be in the range 0xDC00..0xDFFF.
     }
 
     //Otherwise something bad is happenening
-    callback->on_error(5002, "Unexpected character while parsing dict start",start,cursor,end);
+    callback->on_error( ErrorContext( 5002, "Unexpected character while parsing dict start",start,cursor,end));
     return NULL;
   }
 
@@ -569,12 +580,12 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = eat_whitespace(start,end);
     if(cursor==end)
     {
-      callback->on_error(5003, "Unexpected end of input while lookig for dict seperator",start,cursor,end);
+      callback->on_error( ErrorContext( 5003, "Unexpected end of input while lookig for dict seperator",start,cursor,end));
       return NULL;
     }
     if(*cursor!=':')
     {
-      callback->on_error(5004, "Unexpected character while looking for dict seperator",start,cursor,end);
+      callback->on_error( ErrorContext( 5004, "Unexpected character while looking for dict seperator",start,cursor,end));
       return NULL;
     }
     ++cursor;
@@ -595,7 +606,7 @@ which will be in the range 0xDC00..0xDFFF.
     const unsigned char * cursor = eat_whitespace(start,end);
     if(cursor==end)
     {
-      callback->on_error(5005, "Unexpected end of input while reading dict",start,cursor,end);
+      callback->on_error( ErrorContext( 5005, "Unexpected end of input while reading dict",start,cursor,end));
       return NULL;
     }
 
@@ -610,7 +621,7 @@ which will be in the range 0xDC00..0xDFFF.
     //Nope.. we'd better be getting a comma then a string then
     if( *cursor!=',')
     {
-      callback->on_error(5006, "Unexpected character when looking for comma in dict",start,cursor,end);
+      callback->on_error( ErrorContext( 5006, "Unexpected character when looking for comma in dict",start,cursor,end));
       return NULL;
     }
     ++cursor;
@@ -618,13 +629,13 @@ which will be in the range 0xDC00..0xDFFF.
 
     if(cursor==end)
     {
-      callback->on_error(5007, "Unexpected end of input when looking for dict key",start,cursor,end);
+      callback->on_error( ErrorContext( 5007, "Unexpected end of input when looking for dict key",start,cursor,end));
       return NULL;
     }
 
     if( *cursor!='"' )
     {
-      callback->on_error(5008, "Unexpected character when looking for dict key",start,cursor,end);
+      callback->on_error( ErrorContext( 5008, "Unexpected character when looking for dict key",start,cursor,end));
       return NULL;
     }
 
@@ -679,7 +690,7 @@ which will be in the range 0xDC00..0xDFFF.
           cursor =  parse_dict_continue( cursor, end, callback, &state_stack );
           break;
         default:
-          callback->on_error(-1002,"Inavlid state encountered", start, cursor,end);
+          callback->on_error( ErrorContext(-1002,"Inavlid state encountered", start, cursor,end) );
           return false;
       }
 
@@ -688,7 +699,7 @@ which will be in the range 0xDC00..0xDFFF.
 
     if(state_stack.back().state != state::start_root)
     {
-      callback->on_error(6001, "Input ended while in non-root state",start,end,end);
+      callback->on_error( ErrorContext(6001, "Input ended while in non-root state",start,end,end) );
       return false;
     }
     return true;
@@ -714,9 +725,12 @@ which will be in the range 0xDC00..0xDFFF.
     std::cout<<"========================="<<std::endl;
   }
 
+
   struct XParser
   {
-      XParser()
+      XParser( UserErrorCallback in_user_error_callback, void * in_userdata ) :
+        user_error_callback(in_user_error_callback),
+        user_data(in_userdata)
       {
         context.reserve(5);
         context.push_back( Context::root() );
@@ -887,9 +901,16 @@ which will be in the range 0xDC00..0xDFFF.
         return cur_tok;
       }
 
-      void on_error( int errcode, const std::string & mesg, const unsigned char * start_context, const unsigned char * locn, const unsigned char * end_context )
+      void on_error( const ErrorContext & error_context )
       {
-        std::cerr<<"OMG error ["<<errcode<<"] "<<mesg<<std::endl;
+        if(user_error_callback)
+        {
+          user_error_callback(user_data, error_context);
+        }
+        else
+        {
+          std::cerr<<"fastjson - error ["<<error_context.errcode<<"] "<<error_context.mesg<<std::endl;
+        }
       }
 
 
@@ -939,6 +960,9 @@ which will be in the range 0xDC00..0xDFFF.
       };
 
       std::vector<Context> context;
+
+      UserErrorCallback user_error_callback;
+      void * user_data;
   };
 
   bool parse_doc( const std::string & json_str, Document * doc )
@@ -946,10 +970,11 @@ which will be in the range 0xDC00..0xDFFF.
     return parse_doc( reinterpret_cast<const unsigned char*>(json_str.c_str()), reinterpret_cast<const unsigned char*>(json_str.c_str()) + json_str.size(), doc );
   }
 
-  bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc )
+  bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc)
   {
+      if(!doc) return false;
       //This assumes we have enough space...
-      XParser p;
+      XParser p(doc->error_callback,doc->user_data);
       p.doc = doc;
       p.string_ptr = doc->string_store;
       p.array_ptr = doc->array_store;

@@ -41,6 +41,40 @@
 
 namespace fastjson
 {
+  namespace mode
+  {
+    static const unsigned int ext_any_as_key = 1;
+  }
+
+  struct ErrorContext
+  {
+    ErrorContext(
+      int in_errorcode,
+      const std::string & in_mesg,
+      const unsigned char * in_start_context,
+      const unsigned char * in_locn,
+      const unsigned char * in_end_context
+      ) :
+      errcode(in_errorcode),
+      mesg(in_mesg),
+      start_context(in_start_context),
+      locn(in_locn),
+      end_context(in_end_context)
+      {
+      }
+
+    int errcode;
+    std::string mesg;
+    const unsigned char * start_context;
+    const unsigned char * locn;
+    const unsigned char * end_context;
+  };
+
+  typedef void (*UserErrorCallback)(
+      void *,                // user_data
+      const ErrorContext &   // error_context
+      );
+
   struct JsonElementCount
   {
     public:
@@ -84,14 +118,14 @@ namespace fastjson
       uint32_t n_dict_elements() const { return counts[InDict]/2; }
       uint32_t n_string_length() const { return total_string_length; }
 
-      void on_error( int errcode, const std::string & err, const unsigned char * start_context, const unsigned char * locn, const unsigned char * end_context )
+      void on_error( const ErrorContext & ec )
       {
-          std::cerr<<"OMG an error ["<<errcode<<"] : "<<err<<std::endl;
+          std::cerr<<"OMG an error ["<<ec.errcode<<"] : "<<ec.mesg<<std::endl;
           std::cerr<<"It seems to have happened here..."<<std::endl;
-          const unsigned char * ep = (locn+10<end_context)?locn+10:end_context;
-          const unsigned char * sp = (locn-10>start_context)?locn-10:start_context;
+          const unsigned char * ep = (ec.locn+10<ec.end_context)?ec.locn+10:ec.end_context;
+          const unsigned char * sp = (ec.locn-10>ec.start_context)?ec.locn-10:ec.start_context;
           std::cerr<<std::string(sp, ep)<<std::endl;
-          while( sp < locn ) { std::cerr<<' '; ++sp; }
+          while( sp < ec.locn ) { std::cerr<<' '; ++sp; }
           std::cerr<<"^"<<std::endl;
       }
 
@@ -114,10 +148,23 @@ namespace fastjson
   class Document
   {
     public:
+    Document() :
+      root(),
+      string_store(NULL),
+      array_store(NULL),
+      dict_store(NULL),
+      mode(0),
+      error_callback(NULL),
+      user_data(NULL)
+    {}
+
     Token root;
     unsigned char * string_store;
     ArrayEntry * array_store;
     DictEntry * dict_store;
+    unsigned int mode;
+    fastjson::UserErrorCallback error_callback;
+    void * user_data;
   };
 
   bool parse_doc( const unsigned char * start, const unsigned char * end, Document * doc );
