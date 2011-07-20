@@ -189,11 +189,15 @@ class TestFixture
 
     void complex2()
     {
-      //TODO: THis one breaks it - maybe not we just had a buffer overflow
-      //        bool ok = fastjson::parse_doc( "{\"f\":[\"g\",\"h\"],\"i\":{\"j\":\"k\"},\"l\":\"m\"}" , &doc );
-      //Neither does this one..
-      //        bool ok = fastjson::parse_doc( "{\"f\":[\"g\",\"h\"],\"i\":[\"j\",\"k\"],\"l\":\"m\"}" , &doc );
-      saru_error("NYI");
+      fastjson::ArrayEntry array_entries[2];
+      fastjson::DictEntry  dict_entries[4];
+      unsigned char buffer[] = "xxxxxxxx"; //Eight characters
+      fastjson::Document doc;
+      doc.string_store = buffer;
+      doc.array_store = array_entries;
+      doc.dict_store  = dict_entries;
+      bool ok = fastjson::parse_doc( "{\"f\":[\"g\",\"h\"],\"i\":{\"j\":\"k\"},\"l\":\"m\"}" , &doc );
+      saru_assert(ok);
     }
 
     void naked_literal_true()
