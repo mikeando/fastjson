@@ -642,17 +642,27 @@ which will be in the range 0xDC00..0xDFFF.
       return NULL;
     }
 
-    if( *cursor!='"' )
+    if( callback->mode == mode::ext_any_as_key )
     {
-      callback->on_error( ErrorContext( 5008, "Unexpected character when looking for dict key",start,cursor,end));
-      return NULL;
+      state->back().state = state::dict_read_value;
+      return parse_start_object( cursor, end, callback, state );
+    }
+    else
+    {
+      //Nope.. we'd better be getting a string then
+      if( *cursor=='"' )
+      {
+        callback->start_string();
+        //Transition the state for when we complete the sub-state, then move into a sub state.
+        state->back().state = state::dict_read_value;
+        state->push_back( ParserState(state::start_string) );
+        return cursor+1;
+      }
     }
 
-    callback->start_string();
-    //Transition the state for when we complete the sub-state, then move into a sub state.
-    state->back().state = state::dict_read_value;
-    state->push_back( ParserState(state::start_string) );
-    return cursor+1;
+    callback->on_error( ErrorContext( 5008, "Unexpected character when looking for dict key",start,cursor,end));
+    return NULL;
+
   }
 
   template<typename T>

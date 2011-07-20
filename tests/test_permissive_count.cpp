@@ -39,6 +39,21 @@ struct TestFixture
         saru_assert( !eh.ec_ );
   }
 
+  void number_as_key_ok2()
+  {
+        fastjson::JsonElementCount jse;
+
+        ErrorHelper eh;
+        jse.user_error_callback = &ErrorHelper::on_error;
+        jse.user_data = &eh;
+        jse.mode = fastjson::mode::ext_any_as_key;
+
+        bool ok = fastjson::count_elements( "{\"a\":\"y\",2:\"y\"}" , &jse );
+
+        saru_assert(ok);
+        saru_assert( !eh.ec_ );
+  }
+
   void number_as_key_bad()
   {
         fastjson::JsonElementCount jse;
@@ -54,13 +69,31 @@ struct TestFixture
         saru_assert( eh.ec_ );
         saru_assert_equal("Unexpected character while parsing dict start", eh.ec_->mesg );
   }
+
+  void number_as_key_bad2()
+  {
+        fastjson::JsonElementCount jse;
+
+        ErrorHelper eh;
+        jse.user_error_callback = &ErrorHelper::on_error;
+        jse.user_data = &eh;
+        jse.mode = 0;
+
+        bool ok = fastjson::count_elements( "{\"a\":\"y\",2:\"y\"}" , &jse );
+
+        saru_assert(!ok);
+        saru_assert( eh.ec_ );
+        saru_assert_equal("Unexpected character when looking for dict key", eh.ec_->mesg );
+  }
 };
 
 int main()
 {
   saru::TestLogger logger;
   SARU_TEST( TestFixture::number_as_key_ok, logger);
+  SARU_TEST( TestFixture::number_as_key_ok2, logger);
   SARU_TEST( TestFixture::number_as_key_bad, logger);
+  SARU_TEST( TestFixture::number_as_key_bad2, logger);
   logger.printSummary();
 
   return logger.allOK()?0:1;
