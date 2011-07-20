@@ -34,6 +34,7 @@
 #include <vector>
 
 #include "fastjson/core.h"
+#include "fastjson/error.h"
 
 //TODO: Remove this when we have better error handling.
 #include <iostream>
@@ -45,35 +46,6 @@ namespace fastjson
   {
     static const unsigned int ext_any_as_key = 1;
   }
-
-  struct ErrorContext
-  {
-    ErrorContext(
-      int in_errorcode,
-      const std::string & in_mesg,
-      const unsigned char * in_start_context,
-      const unsigned char * in_locn,
-      const unsigned char * in_end_context
-      ) :
-      errcode(in_errorcode),
-      mesg(in_mesg),
-      start_context(in_start_context),
-      locn(in_locn),
-      end_context(in_end_context)
-      {
-      }
-
-    int errcode;
-    std::string mesg;
-    const unsigned char * start_context;
-    const unsigned char * locn;
-    const unsigned char * end_context;
-  };
-
-  typedef void (*UserErrorCallback)(
-      void *,                // user_data
-      const ErrorContext &   // error_context
-      );
 
   struct JsonElementCount
   {
