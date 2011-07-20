@@ -13,7 +13,7 @@ class TestFixture
     {
       fastjson::dom::Chunk chunk;
       fastjson::Token token;
-      saru_assert( fastjson::dom::parse_string("[1,2,3]", &token, &chunk, NULL ) );
+      saru_assert( fastjson::dom::parse_string("[1,2,3]", &token, &chunk, NULL, NULL ) );
 
       std::vector<int> values;
       saru_assert( fastjson::dom::json_helper<std::vector<int> >::from_json_value(&token, &values) );

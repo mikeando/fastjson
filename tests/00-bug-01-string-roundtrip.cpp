@@ -9,51 +9,50 @@
 class TestFixture
 {
   public:
+    struct ErrorGetter
+    {
+      static void on_error( void * in_this, const fastjson::ErrorContext & ec )
+      {
+        static_cast<ErrorGetter*>(in_this)->error_message = ec.mesg;
+      }
+
+      std::string error_message;
+    };
+
+    ErrorGetter error_getter;
+    fastjson::dom::Chunk chunk;
+    fastjson::Token token;
+
+
     void round_trip_easy()
     {
       std::string in_str("\"hello\"");
 
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
-      std::string error_message;
-
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &error_message ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
     void round_trip_hard()
     {
       std::string in_str("\"\\t\\n\\\\\"");
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
 
-      std::string error_message;
-
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &error_message ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
     void round_trip_tab()
     {
       std::string in_str("\"xx\\txx\"");
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
 
-      std::string error_message;
-
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &error_message ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( in_str, fastjson::as_string( &token ) ); 
     }
 
     void read_tab()
     {
       std::string in_str("\"xx\\txx\"");
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
 
-      std::string error_message;
-
-      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &error_message ) );
+      saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( fastjson::Token::ValueToken, token.type );
       saru_assert_equal( 5u, token.data.value.size );
       saru_assert( token.data.value.ptr );
@@ -63,7 +62,6 @@ class TestFixture
     void write_tab()
     {
       char * buffer = "xx\txx";
-      fastjson::Token token;
       token.type = fastjson::Token::ValueToken;
       token.data.value.type_hint = fastjson::ValueType::StringHint;
       token.data.value.size = 5;

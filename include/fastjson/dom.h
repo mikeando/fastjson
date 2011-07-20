@@ -30,6 +30,7 @@
 
 #include "fastjson/core.h"
 #include "fastjson/utils.h"
+#include "fastjson/error.h"
 
 //TODO: Ugly that we need this.. can we remove it later?
 #include <vector>
@@ -651,7 +652,7 @@ namespace fastjson { namespace dom {
       }
     };
 
-    bool parse_string( const std::string & s, Token * tok, Chunk * chunk, std::string * error_message );
+    bool parse_string( const std::string & s, Token * tok, Chunk * chunk, UserErrorCallback user_error_callback, void * user_data );
     void clone_token( const Token * in_token, Token * out_token, Chunk * chunk );
 
   }

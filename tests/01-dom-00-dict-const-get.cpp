@@ -13,7 +13,7 @@ class TestFixture
     {
       fastjson::dom::Chunk chunk;
       fastjson::Token token;
-      saru_assert( fastjson::dom::parse_string("{\"key\":\"value\"}", &token, &chunk, NULL ) );
+      saru_assert( fastjson::dom::parse_string("{\"key\":\"value\"}", &token, &chunk, NULL, NULL ) );
 
       fastjson::dom::Dictionary_const dict = fastjson::dom::Dictionary_const::as_dict(&token);
 

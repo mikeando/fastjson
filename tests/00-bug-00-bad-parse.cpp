@@ -21,7 +21,7 @@ class TestFixture
     {
       fastjson::dom::Chunk chunk;
       fastjson::Token token;
-      saru_assert( fastjson::dom::parse_string("{\"method\":\"ScriptController::run_auth\",\"params\":[942211527,\"zff\",{\"z\":\"456\"},null]}", &token, &chunk, NULL ) );
+      saru_assert( fastjson::dom::parse_string("{\"method\":\"ScriptController::run_auth\",\"params\":[942211527,\"zff\",{\"z\":\"456\"},null]}", &token, &chunk, NULL, NULL ) );
 
       saru_assert_equal( fastjson::Token::DictToken, token.type );
       fastjson::dom::Dictionary dict = fastjson::dom::Dictionary::as_dict( &token, &chunk );

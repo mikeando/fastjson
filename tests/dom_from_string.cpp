@@ -10,46 +10,55 @@ class TestFixture
 {
   public:
 
+    struct ErrorGetter
+    {
+      ErrorGetter() : ec(NULL) {};
+      ~ErrorGetter(){ delete ec; }
+      static void on_error( void * in_this, const fastjson::ErrorContext & ec )
+      {
+        delete static_cast<ErrorGetter*>(in_this)->ec;
+        static_cast<ErrorGetter*>(in_this)->ec = new fastjson::ErrorContext(ec);
+      }
+
+      fastjson::ErrorContext * ec;
+    };
+
+    fastjson::dom::Chunk chunk;
+    fastjson::Token token;
+    ErrorGetter error_getter;
+
     void test_create_from_string()
     {
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
-
-      std::string error_message;
-      saru_assert( fastjson::dom::parse_string("[]", &token, &chunk, &error_message ) );
+      std::string json("[]");
+      saru_assert( fastjson::dom::parse_string(json, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( ! error_getter.ec );
       saru_assert( token.type == fastjson::Token::ArrayToken );
     }
 
     void test_create_from_string_bad()
     {
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
-
-      std::string error_message;
-      saru_assert( ! fastjson::dom::parse_string("[", &token, &chunk, &error_message ) );
+      std::string json("[");
+      saru_assert( ! fastjson::dom::parse_string(json, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( error_getter.ec );
+      saru_assert_equal("Input ended while in non-root state", error_getter.ec->mesg );
     }
 
     void test_create_from_string_big_and_complex()
     {
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
-
-      std::string error_message;
-      saru_assert( fastjson::dom::parse_string("{\"hello\":[\"world\",123,4.5],\"say\":{\"moo\":\"cow\",\"eep\":null}}", &token, &chunk, &error_message ) );
+      std::string json("{\"hello\":[\"world\",123,4.5],\"say\":{\"moo\":\"cow\",\"eep\":null}}");
+      saru_assert( fastjson::dom::parse_string(json, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( ! error_getter.ec );
       saru_assert( token.type == fastjson::Token::DictToken );
       saru_assert_equal( std::string("{\"hello\":[\"world\",123,4.5],\"say\":{\"moo\":\"cow\",\"eep\":null}}"), fastjson::as_string( &token ) ); 
 
     }
     void test_create_from_string_mega()
     {
-      fastjson::dom::Chunk chunk;
-      fastjson::Token token;
-
-      std::string error_message;
-      std::string json_string("{\"hello\":[\"world\",123,4.5],\"say\":{\"moo\":\"cow\",\"eep\":null},\"say\":{\"moo\":\"cow\",\"eep\":null},\"say2\":{\"moo\":\"cow\",\"eep\":null},\"say3\":{\"moo\":\"cow\",\"eep\":null},\"say4\":{\"moo\":\"cow\",\"eep\":null},\"say5\":{\"moo\":\"cow\",\"eep\":null},\"say6\":{\"moo\":\"cow\",\"eep\":null}}");
-      saru_assert( fastjson::dom::parse_string(json_string, &token, &chunk, &error_message ) );
+      std::string json("{\"hello\":[\"world\",123,4.5],\"say\":{\"moo\":\"cow\",\"eep\":null},\"say\":{\"moo\":\"cow\",\"eep\":null},\"say2\":{\"moo\":\"cow\",\"eep\":null},\"say3\":{\"moo\":\"cow\",\"eep\":null},\"say4\":{\"moo\":\"cow\",\"eep\":null},\"say5\":{\"moo\":\"cow\",\"eep\":null},\"say6\":{\"moo\":\"cow\",\"eep\":null}}");
+      saru_assert( fastjson::dom::parse_string(json, &token, &chunk, &ErrorGetter::on_error, &error_getter ) );
+      saru_assert( ! error_getter.ec );
       saru_assert( token.type == fastjson::Token::DictToken );
-      saru_assert_equal( json_string, fastjson::as_string( &token ) ); 
+      saru_assert_equal( json, fastjson::as_string( &token ) ); 
     }
 };
 
