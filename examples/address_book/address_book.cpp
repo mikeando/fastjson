@@ -100,6 +100,10 @@ namespace fastjson { namespace dom {
     };
 } }
 
+void on_json_error( void *, const fastjson::ErrorContext& ec)
+{
+  std::cerr<<"ERROR: "<<ec.mesg<<std::endl;
+}
 
 bool add_to_address_book( AddressBook * book, const std::string & filename )
 {
@@ -121,10 +125,8 @@ bool add_to_address_book( AddressBook * book, const std::string & filename )
   fastjson::Token root;
   fastjson::dom::Chunk chunk;
   
-  std::string err_mesg; 
-  if( ! fastjson::dom::parse_string( buffer, &root, &chunk, &err_mesg ) )
+  if( ! fastjson::dom::parse_string( buffer, &root, &chunk, 0, &on_json_error, NULL ) )
   {
-    std::cerr<<"Unable to parse json : "<<err_mesg<<std::endl;
     return false;
   }
 
