@@ -57,7 +57,7 @@ This means traversing an Array in json looks like this:
 
     Token token = ...
     if( token.type != Token::ArrayToken ) { ... }
-    ArrayEntry * child = token.data.array.ptr;
+    ArrayEntry * child = token.array.ptr;
     while(child)
     {
        ...
@@ -65,16 +65,4 @@ This means traversing an Array in json looks like this:
     }
 
 Traversing a dictionary is similar.
-
-
-
-
-
-
- 
-
-
-   
-
-
 

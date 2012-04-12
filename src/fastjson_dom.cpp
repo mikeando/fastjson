@@ -110,7 +110,7 @@ namespace fastjson { namespace dom {
         {
           Array a = Array::create_array( out_token, chunk );
           //Add all the children.
-          ArrayEntry * child_orig = in_token->data.array.ptr;
+          ArrayEntry * child_orig = in_token->array.ptr;
           while( child_orig )
           {
             ArrayEntry * child_copy = a.add_child_raw();
@@ -123,7 +123,7 @@ namespace fastjson { namespace dom {
         {
           Dictionary d = Dictionary::create_dict( out_token, chunk );
           //Add all the children.
-          DictEntry * child_orig = in_token->data.dict.ptr;
+          DictEntry * child_orig = in_token->dict.ptr;
           while( child_orig )
           {
             DictEntry * child_copy = d.add_child_raw();
@@ -136,15 +136,15 @@ namespace fastjson { namespace dom {
       case Token::ValueToken:
         {
           out_token->type = Token::ValueToken;
-          out_token->data.value.size = in_token->data.value.size;
-          out_token->data.value.type_hint = in_token->data.value.type_hint;
-          if( in_token->data.value.ptr == NULL )
+          out_token->value.size = in_token->value.size;
+          out_token->value.type_hint = in_token->value.type_hint;
+          if( in_token->value.ptr == NULL )
           {
-            out_token->data.value.ptr = NULL;
+            out_token->value.ptr = NULL;
           }
           else
           {
-            out_token->data.value.ptr = chunk->create_raw_buffer( in_token->data.value.ptr, in_token->data.value.size );
+            out_token->value.ptr = chunk->create_raw_buffer( in_token->value.ptr, in_token->value.size );
           }
         }
         break;

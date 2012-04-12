@@ -79,7 +79,7 @@ namespace fastjson { namespace dom {
         if(!token) return false;
         if(!value) return false;
         if( token->type != Token::DictToken ) return false;
-        DictEntry * e = token->data.dict.ptr;
+        DictEntry * e = token->dict.ptr;
         while( e )
         {
           std::string k;

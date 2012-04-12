@@ -65,7 +65,7 @@ struct Token
     ArrayType array;
     DictType  dict;
     ValueType value;
-  } data;
+  };
 };
 
 struct ArrayEntry
@@ -85,18 +85,18 @@ struct DictEntry
 static inline void init_string_token( Token * tok, char * v, size_t s )
 {
   tok->type = fastjson::Token::ValueToken;
-  tok->data.value.ptr = v;
-  tok->data.value.size = s;
-  tok->data.value.type_hint = fastjson::ValueType::StringHint;
+  tok->value.ptr = v;
+  tok->value.size = s;
+  tok->value.type_hint = fastjson::ValueType::StringHint;
 }
 
 //Does not copy v and expects v to live for as long as the Token does.
 static inline void init_number_token( Token * tok, char * v, size_t s )
 {
   tok->type = fastjson::Token::ValueToken;
-  tok->data.value.ptr = v;
-  tok->data.value.size = s;
-  tok->data.value.type_hint = fastjson::ValueType::NumberHint;
+  tok->value.ptr = v;
+  tok->value.size = s;
+  tok->value.type_hint = fastjson::ValueType::NumberHint;
 }
 
 
@@ -117,7 +117,7 @@ static inline std::string as_string( const Token * tok )
 static inline uint32_t dict_size( Token * tok)
 {
   assert( tok->type == fastjson::Token::DictToken );
-  fastjson::DictEntry * child = tok->data.dict.ptr;
+  fastjson::DictEntry * child = tok->dict.ptr;
   uint32_t count = 0;
   while( child != NULL )
   {
@@ -130,7 +130,7 @@ static inline uint32_t dict_size( Token * tok)
 static inline uint32_t array_size( Token * tok)
 {
   assert( tok->type == fastjson::Token::ArrayToken );
-  fastjson::ArrayEntry * child = tok->data.array.ptr;
+  fastjson::ArrayEntry * child = tok->array.ptr;
   uint32_t count = 0;
   while( child != NULL )
   {

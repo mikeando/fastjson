@@ -188,11 +188,11 @@ namespace fastjson
   {
     bool escape_unicode_errors = true;
     bool escape_unicode = true;
-    switch( tok->data.value.type_hint)
+    switch( tok->value.type_hint)
     {
       case ValueType::StringHint:
         {
-          if (tok->data.value.ptr==NULL)
+          if (tok->value.ptr==NULL)
           {
             w->write('"');
             w->write('"');
@@ -202,8 +202,8 @@ namespace fastjson
           {
             //TODO: we need to json escape this string...
             w->write('"');
-            unsigned char * start = reinterpret_cast<unsigned char*>( tok->data.value.ptr );
-            unsigned char * end = start + tok->data.value.size;
+            unsigned char * start = reinterpret_cast<unsigned char*>( tok->value.ptr );
+            unsigned char * end = start + tok->value.size;
             while( start != end )
             {
               switch( decode_types[*start] )
@@ -380,15 +380,15 @@ namespace fastjson
         break;
       case ValueType::NumberHint:
         {
-          if (tok->data.value.ptr==NULL)
+          if (tok->value.ptr==NULL)
           {
             w->write('0');
             return;
           }
           else
           {
-            for(unsigned int i=0; i<tok->data.value.size; ++i)
-              w->write( tok->data.value.ptr[i] );
+            for(unsigned int i=0; i<tok->value.size; ++i)
+              w->write( tok->value.ptr[i] );
             return;
           }
         }
@@ -403,9 +403,9 @@ namespace fastjson
     switch( tok->type )
     {
       case Token::ArrayToken:
-        return process_array(tok->data.array.ptr,w);
+        return process_array(tok->array.ptr,w);
       case Token::DictToken:
-        return process_dict(tok->data.dict.ptr,w);
+        return process_dict(tok->dict.ptr,w);
       case Token::ValueToken:
         return process_value(tok,w);
       case Token::LiteralTrueToken:

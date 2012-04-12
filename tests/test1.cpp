@@ -12,7 +12,7 @@ class TestFixture
     void count_empty_array()
     {
       tok.type=fastjson::Token::ArrayToken;
-      tok.data.array.ptr = NULL;
+      tok.array.ptr = NULL;
 
       saru_assert_equal( 2u, fastjson::bytes_required(&tok) );
     }
@@ -21,7 +21,7 @@ class TestFixture
     {
       char buffer[]="xxxxx";
       tok.type=fastjson::Token::ArrayToken;
-      tok.data.array.ptr = NULL;
+      tok.array.ptr = NULL;
   
       saru_assert( fastjson::serialize_inplace( &tok, buffer+1 ) );
       saru_assert_equal( std::string("x[]xx"), buffer );
@@ -30,7 +30,7 @@ class TestFixture
     void serialize_empty_array()
     {
       tok.type=fastjson::Token::ArrayToken;
-      tok.data.array.ptr = NULL;
+      tok.array.ptr = NULL;
 
       saru_assert_equal( "[]", fastjson::as_string(&tok) );
     }
@@ -38,7 +38,7 @@ class TestFixture
     void serialize_empty_dict()
     {
       tok.type=fastjson::Token::DictToken;
-      tok.data.dict.ptr = NULL;
+      tok.dict.ptr = NULL;
 
       saru_assert_equal( "{}", fastjson::as_string(&tok) );
     }
@@ -67,8 +67,8 @@ class TestFixture
     void serialize_empty_string()
     {
       tok.type=fastjson::Token::ValueToken;
-      tok.data.value.ptr = NULL;
-      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      tok.value.ptr = NULL;
+      tok.value.type_hint = fastjson::ValueType::StringHint;
 
       saru_assert_equal( "\"\"", fastjson::as_string(&tok) );
     }
@@ -96,7 +96,7 @@ class TestFixture
       ae2.next = NULL;
 
       tok.type=fastjson::Token::ArrayToken;
-      tok.data.array.ptr=&ae1;
+      tok.array.ptr=&ae1;
 
       saru_assert_equal( "[\"hello\",\"world\"]", fastjson::as_string(&tok) );
     }
@@ -109,11 +109,11 @@ class TestFixture
 
       //This is ugly!
       ae1.tok.type = fastjson::Token::ArrayToken;
-      ae1.tok.data.array.ptr = &ae2;
+      ae1.tok.array.ptr = &ae2;
       ae2.tok.type = fastjson::Token::ArrayToken;
-      ae2.tok.data.array.ptr = NULL;
+      ae2.tok.array.ptr = NULL;
       ae3.tok.type = fastjson::Token::ArrayToken;
-      ae3.tok.data.array.ptr = NULL;
+      ae3.tok.array.ptr = NULL;
 
       //Link them up
       ae1.next = &ae3;
@@ -121,7 +121,7 @@ class TestFixture
       ae3.next = NULL;
 
       tok.type=fastjson::Token::ArrayToken;
-      tok.data.array.ptr=&ae1;
+      tok.array.ptr=&ae1;
 
       saru_assert_equal( "[[[]],[]]", fastjson::as_string(&tok) );
     }
@@ -140,7 +140,7 @@ class TestFixture
       d2.next = NULL;
       
       tok.type = fastjson::Token::DictToken;
-      tok.data.dict.ptr = &d1;
+      tok.dict.ptr = &d1;
 
       saru_assert_equal( "{\"hello\":\"world\",\"f\":\"g\"}", fastjson::as_string(&tok) );
     }
@@ -159,9 +159,9 @@ class TestFixture
       char result[] = "xxxxxxxxxxxx";
 
       tok.type = fastjson::Token::ValueToken;
-      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
-      tok.data.value.size = 3;
-      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      tok.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.value.size = 3;
+      tok.value.type_hint = fastjson::ValueType::StringHint;
       saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
       saru_assert_equal( std::string("x\"a\\u007Fa\"x"), std::string(result) );
     }
@@ -172,9 +172,9 @@ class TestFixture
       char result[] = "xxxxxxxxxxxx";
 
       tok.type = fastjson::Token::ValueToken;
-      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
-      tok.data.value.size = 4;
-      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      tok.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.value.size = 4;
+      tok.value.type_hint = fastjson::ValueType::StringHint;
 
       saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
       saru_assert_equal( std::string("x\"a\\u00A2a\"x"), std::string(result) );
@@ -186,9 +186,9 @@ class TestFixture
       char result[] = "xxxxxxxxxxxx";
 
       tok.type = fastjson::Token::ValueToken;
-      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
-      tok.data.value.size = 5;
-      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      tok.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.value.size = 5;
+      tok.value.type_hint = fastjson::ValueType::StringHint;
 
       saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
       saru_assert_equal( std::string("x\"a\\u20ACa\"x"), std::string(result) );
@@ -200,9 +200,9 @@ class TestFixture
       char result[] = "xxxxxxxxxxxxxxxxxx";
 
       tok.type = fastjson::Token::ValueToken;
-      tok.data.value.ptr = reinterpret_cast<char*>(buffer);
-      tok.data.value.size = 6;
-      tok.data.value.type_hint = fastjson::ValueType::StringHint;
+      tok.value.ptr = reinterpret_cast<char*>(buffer);
+      tok.value.size = 6;
+      tok.value.type_hint = fastjson::ValueType::StringHint;
 
       saru_assert(fastjson::serialize_inplace( &tok, result+1 ) );
       saru_assert_equal( std::string("x\"a\\uD834\\uDD1Ea\"x"), std::string(result) );

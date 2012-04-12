@@ -21,7 +21,7 @@ struct json_helper<CustomObject>
   static bool build( Token * tok, Chunk * chunk, const CustomObject & obj )
   {
     tok->type=Token::DictToken;
-    tok->data.dict.ptr=NULL;
+    tok->dict.ptr=NULL;
     Dictionary d = Dictionary::create_dict(tok,chunk);
     d.add<int>( "foo", obj.i_);
     d.add<std::string>( "message", obj.m_);

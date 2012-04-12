@@ -822,15 +822,15 @@ which will be in the range 0xDC00..0xDFFF.
       void start_array()
       {
         Token * t = add_child(Token::ArrayToken);
-        t->data.array.ptr = NULL;
-        context.push_back( Context::array( &(t->data.array) ) );
+        t->array.ptr = NULL;
+        context.push_back( Context::array( &(t->array) ) );
       }
 
       void start_dict()
       {
         Token * t = add_child(Token::DictToken);
-        t->data.dict.ptr = NULL;
-        context.push_back( Context::dict( &(t->data.dict) ) );
+        t->dict.ptr = NULL;
+        context.push_back( Context::dict( &(t->dict) ) );
       }
 
       void start_string()
@@ -876,9 +876,9 @@ which will be in the range 0xDC00..0xDFFF.
         Token * tok = get_current_token();
 
         tok->type=fastjson::Token::ValueToken;
-        tok->data.value.type_hint=fastjson::ValueType::StringHint;
-        tok->data.value.ptr = reinterpret_cast<char*>(string_start);
-        tok->data.value.size = string_ptr - string_start;
+        tok->value.type_hint=fastjson::ValueType::StringHint;
+        tok->value.ptr = reinterpret_cast<char*>(string_start);
+        tok->value.size = string_ptr - string_start;
       }
 
       void string_add_ubyte( const unsigned char uc )
@@ -899,9 +899,9 @@ which will be in the range 0xDC00..0xDFFF.
         Token * tok = get_current_token();
 
         tok->type=fastjson::Token::ValueToken;
-        tok->data.value.type_hint=fastjson::ValueType::NumberHint;
-        tok->data.value.ptr = reinterpret_cast<char*>(string_start);
-        tok->data.value.size = string_ptr - string_start;
+        tok->value.type_hint=fastjson::ValueType::NumberHint;
+        tok->value.ptr = reinterpret_cast<char*>(string_start);
+        tok->value.size = string_ptr - string_start;
       };
 
       Document * doc;

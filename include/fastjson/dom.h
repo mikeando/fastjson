@@ -220,7 +220,7 @@ namespace fastjson { namespace dom {
           //Assumes that whatever was there has been cleaned up
           Value retval;
           tok->type = Token::ValueToken;
-          tok->data.dict.ptr = NULL;
+          tok->dict.ptr = NULL;
           retval.tok_   = tok;
           retval.chunk_ = chunk;
           return retval;
@@ -230,42 +230,42 @@ namespace fastjson { namespace dom {
         template<typename T, typename W>
         bool set_numeric( const W & value )
         {
-          tok_->data.value.type_hint = ValueType::NumberHint;
+          tok_->value.type_hint = ValueType::NumberHint;
           std::stringstream ss;
           ss<<value;
           std::string s = ss.str();
           //Now allocate enough space for it.
-          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
-          tok_->data.value.size = s.size();
+          tok_->value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->value.size = s.size();
           return true;
         }
 
         template<typename T, typename W>
         bool set_string( const W & value )
         {
-          tok_->data.value.type_hint = ValueType::StringHint;
+          tok_->value.type_hint = ValueType::StringHint;
           std::stringstream ss;
           ss<<value;
           std::string s = ss.str();
           //Now allocate enough space for it.
-          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
-          tok_->data.value.size = s.size();
+          tok_->value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->value.size = s.size();
           return true;
         }
 
         void set_raw_string( const std::string & s )
         {
-          tok_->data.value.type_hint = ValueType::StringHint;
-          tok_->data.value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
-          tok_->data.value.size = s.size();
+          tok_->value.type_hint = ValueType::StringHint;
+          tok_->value.ptr = chunk_->create_raw_buffer( s.c_str(), s.size() );
+          tok_->value.size = s.size();
         }
 
         void set_raw_cstring( const char * cstr )
         {
-          tok_->data.value.type_hint = ValueType::StringHint;
+          tok_->value.type_hint = ValueType::StringHint;
           size_t len = strlen(cstr);
-          tok_->data.value.ptr = chunk_->create_raw_buffer( cstr, len );
-          tok_->data.value.size = len;
+          tok_->value.ptr = chunk_->create_raw_buffer( cstr, len );
+          tok_->value.size = len;
         }
 
         const Token * token() const
@@ -298,7 +298,7 @@ namespace fastjson { namespace dom {
       static bool from_json_value( const Token * tok, std::string * s )
       {
         if(!tok || tok->type!=Token::ValueToken ) return false;
-        if(tok->data.value.ptr) { *s = std::string( tok->data.value.ptr, tok->data.value.size); return true; }
+        if(tok->value.ptr) { *s = std::string( tok->value.ptr, tok->value.size); return true; }
         *s = "";
         return true;
       }
@@ -318,8 +318,8 @@ namespace fastjson { namespace dom {
       static bool from_json_value( const Token * tok, T * v )
       {
         if(!tok || tok->type!=Token::ValueToken ) return false;
-        if( ! tok->data.value.ptr ) { *v = 0; }
-        return utils::try_convert<T>( tok->data.value.ptr, tok->data.value.size, v );
+        if( ! tok->value.ptr ) { *v = 0; }
+        return utils::try_convert<T>( tok->value.ptr, tok->value.size, v );
       }
     };
 
@@ -360,7 +360,7 @@ namespace fastjson { namespace dom {
         {
           Dictionary retval;
           assert(tok->type==Token::DictToken);
-          DictEntry * d = tok->data.dict.ptr;
+          DictEntry * d = tok->dict.ptr;
           DictEntry * end = NULL;
           //Get the real end...
           while(d)
@@ -380,7 +380,7 @@ namespace fastjson { namespace dom {
           //Assumes that whatever was there has been cleaned up
           Dictionary retval;
           tok->type = Token::DictToken;
-          tok->data.dict.ptr = NULL;
+          tok->dict.ptr = NULL;
           retval.tok_   = tok;
           retval.chunk_ = chunk;
           retval.end_   = NULL;
@@ -406,7 +406,7 @@ namespace fastjson { namespace dom {
           }
           else
           {
-            tok_->data.dict.ptr = dv;
+            tok_->dict.ptr = dv;
           }
           end_ = dv;
           return true;
@@ -423,7 +423,7 @@ namespace fastjson { namespace dom {
           }
           else
           {
-            tok_->data.dict.ptr = dv;
+            tok_->dict.ptr = dv;
           }
           end_ = dv;
           return dv;
@@ -432,13 +432,13 @@ namespace fastjson { namespace dom {
         template<typename T>
         bool get( const std::string & k, T * value )
         {
-          DictEntry * child = tok_->data.dict.ptr;
+          DictEntry * child = tok_->dict.ptr;
           while( child )
           {
             //Is the childs key a string value
-            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
             {
-              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
               {
                 return json_helper<T>::from_json_value( &child->value_tok, value );
               }
@@ -450,13 +450,13 @@ namespace fastjson { namespace dom {
 
         bool get_raw( const std::string & k, Token * token )
         {
-          DictEntry * child = tok_->data.dict.ptr;
+          DictEntry * child = tok_->dict.ptr;
           while( child )
           {
             //Is the childs key a string value
-            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
             {
-              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
               {
                 *token = child->value_tok;
                 return true;
@@ -496,13 +496,13 @@ namespace fastjson { namespace dom {
         template<typename T>
         bool get( const std::string & k, T * value )
         {
-          DictEntry * child = tok_->data.dict.ptr;
+          DictEntry * child = tok_->dict.ptr;
           while( child )
           {
             //Is the childs key a string value
-            if( child->key_tok.type == Token::ValueToken && child->key_tok.data.value.type_hint == ValueType::StringHint )
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
             {
-              if( std::string(child->key_tok.data.value.ptr, child->key_tok.data.value.size) == k )
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
               {
                 return json_helper<T>::from_json_value( &child->value_tok, value );
               }
@@ -533,7 +533,7 @@ namespace fastjson { namespace dom {
         {
           Array retval;
           assert(tok->type==Token::ArrayToken);
-          ArrayEntry * a = tok->data.array.ptr;
+          ArrayEntry * a = tok->array.ptr;
           ArrayEntry * end = NULL;
           //Get the real end...
           while(a)
@@ -552,7 +552,7 @@ namespace fastjson { namespace dom {
           //Assumes that whatever was there has been cleaned up
           Array retval;
           tok->type = Token::ArrayToken;
-          tok->data.array.ptr = NULL;
+          tok->array.ptr = NULL;
           retval.tok_   = tok;
           retval.chunk_ = chunk;
           retval.end_   = NULL;
@@ -579,7 +579,7 @@ namespace fastjson { namespace dom {
           }
           else
           {
-            tok_->data.array.ptr = array_entry;
+            tok_->array.ptr = array_entry;
           }
           end_ = array_entry;
 
@@ -598,7 +598,7 @@ namespace fastjson { namespace dom {
           }
           else
           {
-            tok_->data.array.ptr = array_entry;
+            tok_->array.ptr = array_entry;
           }
           end_ = array_entry;
 
@@ -640,7 +640,7 @@ namespace fastjson { namespace dom {
         if(!data) return false;
         if(!tok || tok->type!=Token::ArrayToken ) return false;
         std::vector<T> retval;
-        ArrayEntry * child = tok->data.array.ptr;
+        ArrayEntry * child = tok->array.ptr;
         while(child)
         {
           retval.push_back(T());
