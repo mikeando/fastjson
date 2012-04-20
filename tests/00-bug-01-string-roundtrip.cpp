@@ -54,18 +54,18 @@ class TestFixture
 
       saru_assert( fastjson::dom::parse_string(in_str, &token, &chunk, 0, &ErrorGetter::on_error, &error_getter ) );
       saru_assert_equal( fastjson::Token::ValueToken, token.type );
-      saru_assert_equal( 5u, token.data.value.size );
-      saru_assert( token.data.value.ptr );
-      saru_assert_equal( "xx\txx", std::string( token.data.value.ptr, token.data.value.size ) );
+      saru_assert_equal( 5u, token.value.size );
+      saru_assert( token.value.ptr );
+      saru_assert_equal( "xx\txx", std::string( token.value.ptr, token.value.size ) );
     }
 
     void write_tab()
     {
       char * buffer = "xx\txx";
       token.type = fastjson::Token::ValueToken;
-      token.data.value.type_hint = fastjson::ValueType::StringHint;
-      token.data.value.size = 5;
-      token.data.value.ptr = buffer;
+      token.value.type_hint = fastjson::ValueType::StringHint;
+      token.value.size = 5;
+      token.value.ptr = buffer;
 
       saru_assert_equal( "\"xx\\txx\"", fastjson::as_string( &token ) ); 
     }

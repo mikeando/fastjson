@@ -36,9 +36,9 @@ class TestFixture
       char * buffer="hello";
       fastjson::Token token;
       token.type = fastjson::Token::ValueToken;
-      token.data.value.ptr = buffer;
-      token.data.value.size = 5;
-      token.data.value.type_hint = fastjson::ValueType::StringHint;
+      token.value.ptr = buffer;
+      token.value.size = 5;
+      token.value.type_hint = fastjson::ValueType::StringHint;
 
       std::string v;
       saru_assert( fastjson::dom::json_helper<std::string>::from_json_value( &token, &v) );
