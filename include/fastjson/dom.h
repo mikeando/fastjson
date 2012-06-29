@@ -392,14 +392,24 @@ namespace fastjson { namespace dom {
         template<typename T, typename W>
         bool add( const std::string & key, const W & value )
         {
+          Token tok;
+
+          if( ! json_helper<T>::build( &tok, chunk_, value ) )
+          {
+            return false;
+          }
+
+          return add_token(key,tok);
+        }
+
+        bool add_token( const std::string & key, const Token & tok )
+        {
           DictEntry * dv = chunk_->dicts().create_value();
           dv->next = NULL;
           Value key_v = Value::create_value( &dv->key_tok, chunk_ );
           key_v.set_raw_string(key);
-          if( ! json_helper<T>::build( &dv->value_tok, chunk_, value ) )
-          {
-            return false;
-          }
+
+          dv->value_tok = tok;
 
           if( end_ )
           {
@@ -416,6 +426,25 @@ namespace fastjson { namespace dom {
         DictEntry * add_child_raw()
         {
           DictEntry * dv = chunk_->dicts().create_value();
+          dv->next = NULL;
+
+          if( end_ )
+          {
+            end_->next = dv;
+          }
+          else
+          {
+            tok_->dict.ptr = dv;
+          }
+          end_ = dv;
+          return dv;
+        }
+
+        DictEntry * add_child_raw( const std::string & key )
+        {
+          DictEntry * dv = chunk_->dicts().create_value();
+          Value key_v = Value::create_value( &dv->key_tok, chunk_ );
+          key_v.set_raw_string(key);
           dv->next = NULL;
 
           if( end_ )
@@ -448,6 +477,47 @@ namespace fastjson { namespace dom {
           }
           return false;
         }
+
+        template<typename T>
+        T get_default( const std::string & k, const T & default_value )
+        {
+          DictEntry * child = tok_->dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
+              {
+                T rv;
+                if( json_helper<T>::from_json_value( &child->value_tok, &rv ) )
+                {
+                  return rv;
+                }
+              }
+            }
+            child = child->next;
+          }
+          return default_value;
+        }
+
+        bool has_child( const std::string & k ) const
+        {
+          DictEntry * child = tok_->dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
+              {
+                return true;
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        } 
 
         bool get_raw( const std::string & k, Token * token )
         {
@@ -513,6 +583,46 @@ namespace fastjson { namespace dom {
           return false;
         }
 
+        // This breaks the classes contract as someone could make changes
+        // to the structures pointed to by the Token, but its the only way to
+        // get a raw token out of these easily.
+        bool get_raw( const std::string & k, Token * token )
+        {
+          DictEntry * child = tok_->dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
+              {
+                *token = child->value_tok;
+                return true;
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        } 
+
+        bool has_child( const std::string & k ) const
+        {
+          DictEntry * child = tok_->dict.ptr;
+          while( child )
+          {
+            //Is the childs key a string value
+            if( child->key_tok.type == Token::ValueToken && child->key_tok.value.type_hint == ValueType::StringHint )
+            {
+              if( std::string(child->key_tok.value.ptr, child->key_tok.value.size) == k )
+              {
+                return true;
+              }
+            }
+            child = child->next;
+          }
+          return false;
+        } 
+
         const Token * token() const
         {
           return tok_;
@@ -546,6 +656,8 @@ namespace fastjson { namespace dom {
           retval.tok_   = tok;
           retval.chunk_ = chunk;
           retval.end_   = end;
+
+          return retval;
         }
 
         static Array create_array( Token * tok, Chunk * chunk )
@@ -609,6 +721,20 @@ namespace fastjson { namespace dom {
         const fastjson::Token * token() const
         {
           return tok_;
+        }
+
+        size_t length() const
+        {
+          fastjson::ArrayEntry * a = tok_->array.ptr;
+          size_t retval = 0;
+
+          //Get the real end...
+          while(a)
+          {
+            ++retval;
+            a = a->next;
+          }
+          return retval;
         }
 
       private:
