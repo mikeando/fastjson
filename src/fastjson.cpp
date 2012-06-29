@@ -51,6 +51,7 @@ static const uint8_t fj_char_traits[256] =
   C_MISC,     C_HEX(10),  C_HEX(11),  C_HEX(12),  C_HEX(13),  C_HEX(14),  C_HEX(15),  C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
+  C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
 
   C_MISC,     C_HEX(10),  C_HEX(11),  C_HEX(12),  C_HEX(13),  C_HEX(14),  C_HEX(15),  C_MISC,
   C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,     C_MISC,
