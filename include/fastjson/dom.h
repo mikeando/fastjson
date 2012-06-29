@@ -325,6 +325,7 @@ namespace fastjson { namespace dom {
 
     template<> struct json_helper<int>      : public numeric_value_json_helper<int>      {};
     template<> struct json_helper<uint64_t> : public numeric_value_json_helper<uint64_t> {};
+    template<> struct json_helper<int64_t> : public numeric_value_json_helper<int64_t> {};
     template<> struct json_helper<float>    : public numeric_value_json_helper<float>    {};
     template<> struct json_helper<double>   : public numeric_value_json_helper<double>   {};
 
