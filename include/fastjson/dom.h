@@ -350,6 +350,13 @@ namespace fastjson { namespace dom {
         if( ! v ) return false;
         if( token->type == Token::LiteralTrueToken ) { *v = true; return true; }
         if( token->type == Token::LiteralFalseToken ) { *v = false; return true; }
+        //Lets be lenient in what we accept .. a 0 is false and a 1 is true (same for "0" and "1").
+        if( (token->type == Token::ValueToken) && (token->value.size==1) )
+        {
+          if( token->value.ptr[0] == '0' ) { *v = false; return true; }
+          if( token->value.ptr[0] == '1' ) { *v = true; return true; }
+        }
+
         return false;
       }
     };
